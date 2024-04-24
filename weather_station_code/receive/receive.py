@@ -168,7 +168,7 @@ if __name__ == "__main__":
     URL = "https://polaris.astro.physik.uni-potsdam.de/weather_station/weather_api/datasets/"
 
     username="data_upload_user"
-    password=r"""`A%"RXh{VyTvY[aE0DbDN0Vlw?e?aL3LSx@UYbdY"""
+    password=r""
     
     print("[INFO] Starting measurement ...")
     comport = find_port(PORT_NAME)
@@ -194,5 +194,8 @@ if __name__ == "__main__":
         }
 
         #   Add data
-        response = requests.post(URL, auth=(username, password), data=data)
-        print(response.status_code)
+        try:
+            response = requests.post(URL, auth=(username, password), data=data)
+            print(response.status_code)
+        except:
+            print("Could not upload data to the database server ...")
