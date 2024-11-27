@@ -39,6 +39,8 @@ def find_port(port_name):
             
             comport = all_comports[i]
             break
+    else:
+        raise RuntimeError("Failed to detect the correct COM port")
     
     return comport
 
