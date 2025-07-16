@@ -6,8 +6,8 @@ This file contains configuration settings for the weather station data receiver.
 The configuration is designed to work on both Linux and Windows systems.
 
 Author: Weather Station Project
-Version: 3.0
-Date: 2024
+Version: 2.0
+Date: 2025-07-16
 """
 
 import os
@@ -22,7 +22,7 @@ DEFAULT_CONFIG = {
         "password": ""
     },
     "arduino": {
-        "port_search": ["Arduino", "ACM", "CH340", "USB-SERIAL"]
+        "port_search": ["Arduino", "ACM", "CH340", "USB-SERIAL", "USB2.0-Ser!"]
     },
     "data": {
         "queue_size": 100,
