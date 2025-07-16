@@ -1,232 +1,523 @@
-// Version vom 15.12.2023 14:43:00 CET
+// Weather Station - Sender Arduino
+// Version: 2.0 (Updated with I2C Multiplexer and CCS811 Air Quality Sensor)
+// Features: BME280, MLX90614, TSL2591, CCS811, Rain Sensors, Anemometer, nRF24L01
+// Data Format: 16 int16_t values (32 bytes) with scaled integers for efficiency
+// I2C Multiplexer: TCA9548A for better sensor organization
 
-// used for the I2C interface
-#include <Wire.h>             // library to use I2C (this sensor ONLY uses I2C for communication)
-#include <Adafruit_Sensor.h>  // interface with the BME280 sensor
-#include <Adafruit_BME280.h>  // interface with the BME280 sensor
-#include "DEV_Config.h"       // light sensor material
-#include "TSL2591.h"          // light sensor material
-#include <SPI.h>              // Antenna stuff
-#include <nRF24L01.h>         // Antenna stuff
-#include <RF24.h>             // Antenna stuff
+// I2C and Sensor Libraries
+#include <Wire.h>             // I2C communication
+#include <Adafruit_Sensor.h>  // Sensor interface
+#include <Adafruit_BME280.h>  // BME280 temperature, humidity, pressure sensor
+#include "DEV_Config.h"       // TSL2591 light sensor configuration
+#include "TSL2591.h"          // TSL2591 light sensor library
+#include <Adafruit_MLX90614.h> // MLX90614 infrared temperature sensor
+#include <SparkFun_CCS811_Arduino_Library.h> // CCS811 air quality sensor
 
+// Radio Communication Libraries
+#include <SPI.h>              // SPI communication for nRF24L01
+#include <nRF24L01.h>         // nRF24L01 radio module
+#include <RF24.h>             // RF24 library
 
-#define SEALEVELPRESSURE_HPA (1030.5)
+// Configuration Constants
+#define WIND_MEASUREMENT_TIME 1000     // Wind measurement duration (ms)
+#define RESET_INTERVAL 3600000         // Auto-reset interval (1 hour in ms)
 
-float time_stamp;
-unsigned long delayTime;
+// Pin Definitions
+#define WIND_SENSOR_PIN 3     // Anemometer interrupt pin
+#define RESET_PIN 4          // Reset pin for watchdog
+#define RAIN_REED_PIN 2      // Reed sensor for rain amount
+#define RAIN_DROP_ANALOG_PIN A1  // Analog rain drop sensor
+#define RAIN_DROP_DIGITAL_PIN 5  // Digital rain drop sensor
 
+// Radio Configuration
+#define RADIO_CE_PIN 9       // nRF24L01 CE pin
+#define RADIO_CSN_PIN 8      // nRF24L01 CSN pin
+#define RADIO_CHANNEL 76     // Radio channel to avoid interference
 
-//  BME280 sensor -> temperature, humidity, pressure
-Adafruit_BME280 bme;  //  create an Adafruit_BME280 object called bme
+// I2C Multiplexer Configuration
+#define TCA9548A_ADDRESS 0x70  // I2C address of TCA9548A multiplexer
+#define TCA_CHANNEL_0 0x01     // Channel 0: BME280
+#define TCA_CHANNEL_1 0x02     // Channel 1: MLX90614
+#define TCA_CHANNEL_2 0x04     // Channel 2: TSL2591
+#define TCA_CHANNEL_3 0x08     // Channel 3: CCS811
 
+// Sensor Objects
+Adafruit_BME280 bme;         // BME280 sensor object
+Adafruit_MLX90614 mlx;       // MLX90614 infrared sensor object
+CCS811 ccs811;               // CCS811 air quality sensor object
+RF24 radio(RADIO_CE_PIN, RADIO_CSN_PIN); // RF24 radio object
 
-//  Anemomenter variables
-const int RecordTime = 1000;  //Define Measuring Time (Milliseconds)
-const int SensorPin = 3;      //Define Interrupt Pin (2 or 3 @ Arduino Uno)
-int InterruptCounter;
-float WindSpeed;
-const float conversion_factor = 1.0;
+// Sensor Availability Flags
+bool bme_sensor_available = false;
+bool mlx_sensor_available = false;
+bool light_sensor_available = false;
+bool ccs811_sensor_available = false;
+bool radio_available = false;
 
-const byte ResetPin = 4;
-const unsigned long ResetInterval = 3600000;
+// Anemometer Variables
+int InterruptCounter = 0;    // Wind revolution counter
+uint16_t wind_revolutions_this_cycle = 0; // Revolutions in current cycle
 
+// Rain Sensor Variables
+bool firstLoop = true;        // First loop flag for reed sensor
+bool lastState = false;       // Previous reed sensor state
+bool currentState = false;    // Current reed sensor state
+unsigned long lastChanged = 0; // Last reed sensor change time
+uint16_t accumulated_rain_tips = 0; // Accumulated tips for packet loss recovery
+bool rain_data_pending = false; // Flag for pending rain data
 
-//  Light sensor variables
-UWORD Lux = 0;
+// Data Transmission Variables
+int16_t results[16];         // 16 int16_t values = 32 bytes total payload (nRF24L01 limit)
+uint16_t packetNumber = 0;   // Packet counter for tracking
+unsigned long lastTransmissionTime = 0; // Last transmission duration
+uint16_t successfulTransmissions = 0;   // Success counter
+uint16_t failedTransmissions = 0;       // Failure counter
 
-
-//  Antenna variables
-RF24 radio(9, 8);  // CE, CSN
-const byte address[6] = "99999";
-
-
-//  Rain sensor variables
-//  Digital input pin
-int rain_sensor_input_pin = 2;
-
-//  1.25 ml per dipper change
-//  The diameter of raingauge is about 130mm, r = 65mm, surface = pi*r^2 = 132.73 cm^2
-//  therefore per m^2 (=10000cm^2) we have a factor of about 75.34
-//  => 1.25*75.34 = 0.094175mm/m^2
-//  
-// const char* mmPerSquareMeter = "0.094175";
-// const float mmPerSquareMeter = 0.094175;
-const float mmPerSquareMeter = 1.25;
-
-//  Indicates that this is the first loop
-bool firstLoop = true;
-//  Specifies which mode was last time
-bool lastState = false;
-//  Specifies the state of the loop now
-bool currentState = false;
-//  Specifies when did we change the status the last time
-unsigned long lastChanged = 0;
-//  Number of tippings since its start
-int totalCount   = 0;
-
-
-//  Define the results array in which the results will be stored. 
-//  The array can have a maximum size of 32 bytes! If sending the 
-//  values as floating point numbers (each being 4bytes in size) 
-//  we can send a total of 8 valies per transmission
-float results[8];
+// Timing Variables
+float time_stamp = 0;        // Measurement timestamp
 
 // SETUP Function
 void setup() {
-  //  Set up the reset pin
-  digitalWrite(ResetPin, HIGH);
-  //pinMode(ResetPin, OUTPUT);
+  // Initialize reset pin
+  pinMode(RESET_PIN, OUTPUT);
+  digitalWrite(RESET_PIN, HIGH);
 
+  // Initialize serial communication
   Serial.begin(9600);
-  while (!Serial)
-    ;  // time to get serial running
+  while (!Serial) {
+    ; // Wait for serial connection
+  }
+  Serial.println(F("Weather Station Sender Starting..."));
+  Serial.println(F("Version 2.0"));
 
+  // Initialize rain sensor pins
+  pinMode(RAIN_REED_PIN, INPUT);
+  pinMode(RAIN_DROP_DIGITAL_PIN, INPUT);
 
-  //  Initialize pin for rain sensor
-  pinMode(rain_sensor_input_pin, INPUT);
+  // Initialize I2C multiplexer
+  initializeI2CMultiplexer();
 
+  // Initialize sensors through multiplexer
+  initializeBME280();
+  initializeMLX90614();
+  initializeTSL2591();
+  initializeCCS811();
 
-  //  Set up BME with defaults
-  unsigned status;
-  status = bme.begin(0x76);
-  // You can also pass in a Wire library object like &Wire2
-  // status = bme.begin(0x76, &Wire2)
+  // Initialize nRF24L01 radio
+  initializeRadio();
 
-  //if (!status) {
-  //    Serial.println(F("Could not find a valid BME280 sensor, check wiring, address, sensor ID!"));
-  //    Serial.print(F("SensorID was: 0x")); Serial.println(bme.sensorID(),16);
-  //    while (1) delay(10);
-  //}
-
-  delayTime = 1000;
-
-
-  //  Light sensor stuff
-  DEV_ModuleInit();
-  TSL2591_Init();
-
-
-  //  Antenna stuff
-  radio.begin();
-  radio.openWritingPipe(address);
-  radio.stopListening();
+  Serial.println(F("Weather Station initialization complete!"));
 }
 
-void loop() {
-
-  time_stamp++;
-  results[0] = time_stamp;
-
-  //  BME stuff
-  results[1] = bme.readTemperature();
-  results[2] = bme.readPressure();
-  results[3] = bme.readHumidity();
-
-
-  //  Light sensor stuff
-  results[4] = (float)TSL2591_Read_Lux();
-
-
-  //  Rain sensor stuff
-  // int rainAnalogVal = analogRead(A1);  // analog to digital converter, reads value from 0 to 1023 (achieved via voltage divider),
-  // // prop to resistance (lower resistance -> more rain)
-  // int rainDigitalVal = digitalRead(2);  // reads 0, when rain sensor's resitance is smaller that a comparison value (dep. on potentiometer)
-  // results[5] = (float)rainAnalogVal * (2 * rainDigitalVal - 1);
-
-  //  If it is the first startup,  it should not recognize the current
-  //  position of the tipper as a tip
-  int currentState = digitalRead(rain_sensor_input_pin);
-  if (firstLoop) {
-    lastState = currentState;
-    firstLoop = false;  // Sets that it has now run the startup
-  };
-
-  //  Checks the value of the tipper and translates it to a bool value
-  if (currentState == 1) {
-    currentState = true;
+// Initialize I2C multiplexer
+void initializeI2CMultiplexer() {
+  Wire.begin();
+  
+  // Test multiplexer communication
+  Wire.beginTransmission(TCA9548A_ADDRESS);
+  if (Wire.endTransmission() == 0) {
+    Serial.println(F("I2C Multiplexer (TCA9548A) initialized successfully"));
   } else {
-    currentState = false;
+    Serial.println(F("ERROR: I2C Multiplexer (TCA9548A) not found!"));
+  }
+}
+
+// Select I2C multiplexer channel
+void selectI2CChannel(uint8_t channel) {
+  Wire.beginTransmission(TCA9548A_ADDRESS);
+  Wire.write(channel);
+  Wire.endTransmission();
+  delay(1); // Small delay for channel switching
+}
+
+// Initialize BME280 temperature, humidity, pressure sensor
+void initializeBME280() {
+  selectI2CChannel(TCA_CHANNEL_0);
+  
+  unsigned status = bme.begin(0x76);
+  
+  if (!status) {
+    Serial.println(F("Could not find a valid BME280 sensor, check wiring, address, sensor ID!"));
+    Serial.print(F("SensorID was: 0x")); Serial.println(bme.sensorID(), 16);
+    Serial.println(F("Using default values for BME280 sensor data"));
+    bme_sensor_available = false;
+  } else {
+    bme_sensor_available = true;
+    Serial.println(F("BME280 sensor initialized successfully (Channel 0)"));
+  }
+}
+
+// Initialize MLX90614 infrared temperature sensor
+void initializeMLX90614() {
+  selectI2CChannel(TCA_CHANNEL_1);
+  
+  if (mlx.begin()) {
+    mlx_sensor_available = true;
+    Serial.println(F("MLX90614 infrared temperature sensor initialized successfully (Channel 1)"));
+    Serial.print(F("Emissivity = ")); Serial.println(mlx.readEmissivity());
+  } else {
+    mlx_sensor_available = false;
+    Serial.println(F("Could not find a valid MLX90614 sensor, check wiring!"));
+    Serial.println(F("Using default values for MLX90614 sensor data"));
+  }
+}
+
+// Initialize TSL2591 light sensor
+void initializeTSL2591() {
+  selectI2CChannel(TCA_CHANNEL_2);
+  
+  DEV_ModuleInit();
+  if (TSL2591_Init() == 0) {
+    light_sensor_available = true;
+    Serial.println(F("TSL2591 light sensor initialized successfully (Channel 2)"));
+  } else {
+    light_sensor_available = false;
+    Serial.println(F("Could not initialize TSL2591 light sensor, using default values"));
+  }
+}
+
+// Initialize CCS811 air quality sensor
+void initializeCCS811() {
+  selectI2CChannel(TCA_CHANNEL_3);
+  
+  if (ccs811.begin()) {
+    ccs811_sensor_available = true;
+    Serial.println(F("CCS811 air quality sensor initialized successfully (Channel 3)"));
+    
+    // Configure CCS811 for environmental measurements
+    ccs811.setDriveMode(CCS811_DRIVE_MODE_1SEC);
+    Serial.println(F("CCS811 configured for 1-second measurements"));
+  } else {
+    ccs811_sensor_available = false;
+    Serial.println(F("Could not find a valid CCS811 sensor, check wiring!"));
+    Serial.println(F("Using default values for CCS811 sensor data"));
+  }
+}
+
+// Initialize nRF24L01 radio module
+void initializeRadio() {
+  if (radio.begin()) {
+    radio.openWritingPipe("99999");
+    radio.stopListening();
+    
+    // Configure RF24 for reliable transmission
+    radio.setRetries(3, 15);        // 3 retries, 15ms delay between retries
+    radio.setPayloadSize(32);       // nRF24L01 hardware limit: 32 bytes max
+    radio.setChannel(RADIO_CHANNEL); // Use channel 76 to avoid interference
+    radio.setPALevel(RF24_PA_HIGH); // High power for better range
+    
+    radio_available = true;
+    Serial.println(F("RF24 radio initialized successfully"));
+  } else {
+    radio_available = false;
+    Serial.println(F("Could not initialize RF24 radio, data transmission disabled"));
+  }
+}
+
+// MAIN LOOP
+void loop() {
+  // Increment timestamp
+  time_stamp++;
+  results[0] = (int16_t)time_stamp;
+
+  // Read BME280 sensor data
+  readBME280Data();
+
+  // Read MLX90614 infrared sensor data
+  readMLX90614Data();
+
+  // Read TSL2591 light sensor data
+  readTSL2591Data();
+
+  // Read CCS811 air quality sensor data
+  readCCS811Data();
+
+  // Read rain sensor data (reed sensor for amount)
+  readRainReedData();
+
+  // Read rain drop sensor data (binary detection)
+  readRainDropData();
+
+  // Read anemometer data
+  readAnemometerData();
+
+  // Add packet number for tracking
+  results[7] = (int16_t)packetNumber;
+
+  // Clear remaining data slots for future expansion
+  for (int i = 15; i < 16; i++) {
+    results[i] = 0;
   }
 
-  //  Checks if the tipper has moved since the last loop run
-  if (lastState != currentState) {
-    lastState = currentState;
+  // Transmit data via radio
+  transmitData();
 
-    //  Between two changes, there should be 0.25 s
-    if ((millis() - lastChanged) > 250) {
-      totalCount++;
-      lastChanged = millis(); 
+  // Print debug information
+  printDebugInfo();
 
-      results[5] = mmPerSquareMeter;
+  // Check for auto-reset
+  checkAutoReset();
+}
+
+// Read BME280 temperature, humidity, pressure data
+void readBME280Data() {
+  if (bme_sensor_available) {
+    selectI2CChannel(TCA_CHANNEL_0);
+    
+    float temp = bme.readTemperature();
+    float pressure = bme.readPressure();
+    float humidity = bme.readHumidity();
+    
+    // Scale temperature by 100 (e.g., 23.45°C -> 2345)
+    results[1] = (int16_t)(temp * 100.0);
+    
+    // Scale pressure by 10 (e.g., 1013.25 hPa -> 10132)
+    results[2] = (int16_t)(pressure * 10.0);
+    
+    // Scale humidity by 100 (e.g., 45.67% -> 4567)
+    results[3] = (int16_t)(humidity * 100.0);
+  } else {
+    // Use default values if sensor is not available
+    results[1] = 0; // temperature default
+    results[2] = 0; // pressure default
+    results[3] = 0; // humidity default
+  }
+}
+
+// Read MLX90614 infrared temperature sensor data
+void readMLX90614Data() {
+  if (mlx_sensor_available) {
+    selectI2CChannel(TCA_CHANNEL_1);
+    
+    float sky_temp = mlx.readObjectTempC();  // Sky temperature (infrared)
+    float box_temp = mlx.readAmbientTempC(); // Temperature of weather station box (internal sensor)
+    
+    // Scale temperatures by 100 (e.g., 25.67°C -> 2567)
+    results[8] = (int16_t)(sky_temp * 100.0);
+    results[9] = (int16_t)(box_temp * 100.0);
+  } else {
+    // Use default values if sensor is not available
+    results[8] = 0; // sky temperature default
+    results[9] = 0; // box temperature default
+  }
+}
+
+// Read TSL2591 light sensor data
+void readTSL2591Data() {
+  if (light_sensor_available) {
+    selectI2CChannel(TCA_CHANNEL_2);
+    
+    uint32_t lux_raw = TSL2591_Read_Lux();
+    // Scale light by 1 (direct lux value, max 65535)
+    results[4] = (int16_t)min(lux_raw, 65535UL);
+  } else {
+    // Use default value if sensor is not available
+    results[4] = 0; // illuminance default
+  }
+}
+
+// Read CCS811 air quality sensor data
+void readCCS811Data() {
+  if (ccs811_sensor_available) {
+    selectI2CChannel(TCA_CHANNEL_3);
+    
+    if (ccs811.dataAvailable()) {
+      ccs811.readAlgorithmResults();
+      
+      // Get CO2 and TVOC values
+      uint16_t co2 = ccs811.getCO2();
+      uint16_t tvoc = ccs811.getTVOC();
+      
+      // Store values directly (CCS811 provides ppm values)
+      results[12] = (int16_t)co2;   // CO2 in ppm
+      results[13] = (int16_t)tvoc;  // TVOC in ppb
+      
+      // Get baseline values for calibration
+      uint16_t baseline = ccs811.getBaseline();
+      results[14] = (int16_t)baseline; // Baseline for CO2 calibration
+      
     } else {
-      results[5] = 0.;
+      // Use previous values if no new data available
+      results[12] = 0; // CO2 default
+      results[13] = 0; // TVOC default
+      results[14] = 0; // Baseline default
     }
   } else {
-    results[5] = 0.;
+    // Use default values if sensor is not available
+    results[12] = 0; // CO2 default
+    results[13] = 0; // TVOC default
+    results[14] = 0; // Baseline default
+  }
+}
+
+// Read rain reed sensor data (for rain amount measurement)
+void readRainReedData() {
+  // Handle first loop initialization
+  int currentState = digitalRead(RAIN_REED_PIN);
+  if (firstLoop) {
+    lastState = currentState;
+    firstLoop = false;
   }
 
+  // Check for state change (rain tip occurred)
+  if (currentState != lastState) {
+    // Debounce: minimum 250ms between changes to prevent false triggers
+    if ((millis() - lastChanged) > 250) {
+      if (currentState == HIGH && lastState == LOW) {
+        // Rising edge detected - rain tip occurred
+        accumulated_rain_tips++;
+        rain_data_pending = true;
+        
+        Serial.print(F("Rain tip detected! Accumulated: "));
+        Serial.println(accumulated_rain_tips);
+      }
+      lastState = currentState;
+      lastChanged = millis();
+    }
+  }
 
-  //  Anemomenter stuff
-  //WindSpeed = wind_measurement();
-  results[6] = wind_measurement();
+  // Set rain tips for transmission
+  results[5] = (int16_t)accumulated_rain_tips;
+}
 
+// Read rain drop sensor data (binary detection)
+void readRainDropData() {
+  int rainDropAnalogVal = analogRead(RAIN_DROP_ANALOG_PIN);
+  int rainDropDigitalVal = digitalRead(RAIN_DROP_DIGITAL_PIN);
+  
+  // Binary rain detection (1 = raining, 0 = not raining)
+  bool isRaining = (rainDropDigitalVal == LOW);
+  results[10] = (int16_t)(isRaining ? 1 : 0);
+  
+  // Store analog value for debugging (0-1023)
+  results[11] = (int16_t)rainDropAnalogVal;
+}
 
-  //  Antenna stuff
-  radio.write(&results, sizeof(results));
+// Read anemometer data
+void readAnemometerData() {
+  // Count revolutions during measurement period
+  InterruptCounter = 0;
+  attachInterrupt(digitalPinToInterrupt(WIND_SENSOR_PIN), countup, RISING);
+  delay(WIND_MEASUREMENT_TIME);
+  detachInterrupt(digitalPinToInterrupt(WIND_SENSOR_PIN));
+  
+  wind_revolutions_this_cycle = InterruptCounter;
+  
+  // Set wind revolutions for transmission (raw count, will be converted on receiver side)
+  results[6] = (int16_t)wind_revolutions_this_cycle;
+}
 
-  for (int i = 0; i < 8; i++) {
+// Transmit data via nRF24L01 radio
+void transmitData() {
+  if (radio_available) {
+    unsigned long transmissionStart = millis();
+    
+    if (radio.write(&results, sizeof(results))) {
+      successfulTransmissions++;
+      unsigned long transmissionTime = millis() - transmissionStart;
+      lastTransmissionTime = transmissionTime;
+      
+      // Clear accumulated rain data if transmission successful
+      if (rain_data_pending) {
+        Serial.print(F("Rain tips successfully transmitted: "));
+        Serial.print(accumulated_rain_tips);
+        Serial.println(F(" tips"));
+        accumulated_rain_tips = 0;
+        rain_data_pending = false;
+      }
+      
+      Serial.print(F("Packet "));
+      Serial.print(packetNumber);
+      Serial.print(F(" transmitted successfully in "));
+      Serial.print(transmissionTime);
+      Serial.println(F(" ms"));
+    } else {
+      failedTransmissions++;
+      Serial.print(F("Failed to transmit packet "));
+      Serial.print(packetNumber);
+      Serial.println(F(" after 3 retries"));
+      
+      // Keep rain data accumulated if transmission failed
+      if (rain_data_pending) {
+        Serial.print(F("Rain tips preserved for next transmission. Total accumulated: "));
+        Serial.print(accumulated_rain_tips);
+        Serial.println(F(" tips"));
+      }
+    }
+    
+    // Increment packet number for next transmission
+    packetNumber++;
+    
+    // Print transmission statistics every 100 packets
+    if (packetNumber % 100 == 0) {
+      printTransmissionStats();
+    }
+  } else {
+    Serial.println(F("Radio not available, skipping transmission"));
+  }
+}
+
+// Print transmission statistics
+void printTransmissionStats() {
+  Serial.print(F("Transmission stats - Success: "));
+  Serial.print(successfulTransmissions);
+  Serial.print(F(", Failed: "));
+  Serial.print(failedTransmissions);
+  Serial.print(F(", Success rate: "));
+  Serial.print((float)successfulTransmissions / (successfulTransmissions + failedTransmissions) * 100);
+  Serial.println(F("%"));
+  
+  // Show pending rain data
+  if (rain_data_pending) {
+    Serial.print(F("Pending rain tips: "));
+    Serial.print(accumulated_rain_tips);
+    Serial.println(F(" tips"));
+  }
+}
+
+// Print debug information
+void printDebugInfo() {
+  // Print scaled values
+  Serial.print(F("Scaled values: "));
+  for (int i = 0; i < 15; i++) {
     Serial.print(results[i]);
     Serial.print(F(" "));
   }
-
-  Serial.print("\n");
-
-
-  //  Check the run time for whether the Arduino should be resetted.
-  if (millis() > ResetInterval) {
-    digitalWrite(ResetPin, LOW);
+  Serial.println();
+  
+  // Print rain detection debug info
+  int rainDropAnalogVal = analogRead(RAIN_DROP_ANALOG_PIN);
+  int rainDropDigitalVal = digitalRead(RAIN_DROP_DIGITAL_PIN);
+  bool isRaining = (results[10] == 1);
+  
+  Serial.print(F("Rain Detection - Digital: "));
+  Serial.print(rainDropDigitalVal);
+  Serial.print(F(", Analog: "));
+  Serial.print(rainDropAnalogVal);
+  Serial.print(F(", Is Raining: "));
+  Serial.println(isRaining ? F("YES") : F("NO"));
+  
+  // Print air quality debug info
+  if (ccs811_sensor_available) {
+    Serial.print(F("Air Quality - CO2: "));
+    Serial.print(results[12]);
+    Serial.print(F(" ppm, TVOC: "));
+    Serial.print(results[13]);
+    Serial.print(F(" ppb, Baseline: "));
+    Serial.print(results[14]);
+    Serial.println();
   }
-
 }
 
-//////////////////////
-// UTLITY FUNCTIONS //
-//////////////////////
-
-// A utility function that helps to print the values of the Barometric and Temperature sensor!
-// void printValues() {
-//   Serial.print("Temperature = ");
-//   Serial.print(bme.readTemperature());
-//   Serial.println(" °C");
-
-//   Serial.print(F("Pressure = "));
-
-//   Serial.print(bme.readPressure() / 100.0F);  //reads pressure in hPa (hectoPascal = millibar)
-//   Serial.println(F(" hPa"));
-
-//   Serial.print(F("Approx. Altitude = "));
-//   Serial.print(bme.readAltitude(SEALEVELPRESSURE_HPA));
-//   Serial.println(" m");
-
-//   Serial.print(F("Humidity = "));
-//   Serial.print(bme.readHumidity());  //reads absolute humidity
-//   Serial.println(F(" %"));
-
-//   Serial.println();
-// }
-
-// take a measurement with the wind sensor
-float wind_measurement(void) {
-  InterruptCounter = 0;
-  attachInterrupt(digitalPinToInterrupt(SensorPin), countup, RISING);
-  delay(RecordTime);
-  detachInterrupt(digitalPinToInterrupt(SensorPin));
-  WindSpeed = 1000.0 * (float)InterruptCounter / (float)RecordTime * conversion_factor;
-  return WindSpeed;
+// Check for auto-reset condition
+void checkAutoReset() {
+  if (millis() > RESET_INTERVAL) {
+    Serial.println(F("Auto-reset triggered"));
+    digitalWrite(RESET_PIN, LOW);
+  }
 }
 
-// a utility function that eases to increment numbers
+// Interrupt handler for anemometer
 void countup() {
   InterruptCounter++;
 }

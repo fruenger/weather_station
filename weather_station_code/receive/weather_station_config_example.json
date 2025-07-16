@@ -1,0 +1,21 @@
+{
+    "server": {
+        "url": "https://polaris.astro.physik.uni-potsdam.de/weather_station/weather_api/datasets/",
+        "username": "data_upload_user",
+        "password": ""
+    },
+    "arduino": {
+        "port_search": [
+            "Arduino",
+            "ACM",
+            "CH340",
+            "USB-SERIAL",
+            "USB2.0-Ser!"
+        ]
+    },
+    "data": {
+        "queue_size": 100,
+        "failed_data_file": "failed_uploads.csv",
+        "timeout": 10
+    }
+}
