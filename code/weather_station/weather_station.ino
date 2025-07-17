@@ -11,7 +11,8 @@
 #include "DEV_Config.h"       // TSL2591 light sensor configuration
 #include "TSL2591.h"          // TSL2591 light sensor library
 #include <Adafruit_MLX90614.h> // MLX90614 infrared temperature sensor
-#include <SparkFun_CCS811_Arduino_Library.h> // CCS811 air quality sensor
+#include <SparkFunCCS811.h> // CCS811 air quality sensor
+
 
 // Radio Communication Libraries
 #include <SPI.h>              // SPI communication for nRF24L01
@@ -185,7 +186,7 @@ void initializeCCS811() {
     Serial.println(F("CCS811 air quality sensor initialized successfully (Channel 3)"));
     
     // Configure CCS811 for environmental measurements
-    ccs811.setDriveMode(CCS811_DRIVE_MODE_1SEC);
+    ccs811.setDriveMode(1); // 1 = 1 second measurements
     Serial.println(F("CCS811 configured for 1-second measurements"));
   } else {
     ccs811_sensor_available = false;
@@ -197,7 +198,7 @@ void initializeCCS811() {
 // Initialize nRF24L01 radio module
 void initializeRadio() {
   if (radio.begin()) {
-    radio.openWritingPipe("99999");
+    radio.openWritingPipe((const uint8_t*)"99999");
     radio.stopListening();
     
     // Configure RF24 for reliable transmission
@@ -324,7 +325,25 @@ void readCCS811Data() {
     if (ccs811.dataAvailable()) {
       ccs811.readAlgorithmResults();
       
-      // Get CO2 and TVOC values
+      // Environmental compensation using BME280 data
+      if (bme_sensor_available) {
+        // Get temperature and humidity from BME280 for compensation
+        selectI2CChannel(TCA_CHANNEL_0);
+        float temp = bme.readTemperature();
+        float humidity = bme.readHumidity();
+        
+        // Set environmental data for CCS811 compensation
+        selectI2CChannel(TCA_CHANNEL_3);
+        ccs811.setEnvironmentalData(humidity, temp);
+        
+        Serial.print(F("CCS811 Environmental Compensation - Temp: "));
+        Serial.print(temp);
+        Serial.print(F("°C, Humidity: "));
+        Serial.print(humidity);
+        Serial.println(F("%"));
+      }
+      
+      // Get CO2 and TVOC values (now with environmental compensation)
       uint16_t co2 = ccs811.getCO2();
       uint16_t tvoc = ccs811.getTVOC();
       
