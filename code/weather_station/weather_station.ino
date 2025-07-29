@@ -11,7 +11,7 @@
 #include "DEV_Config.h"       // TSL2591 light sensor configuration
 #include "TSL2591.h"          // TSL2591 light sensor library
 #include <Adafruit_MLX90614.h> // MLX90614 infrared temperature sensor
-#include <SparkFunCCS811.h> // CCS811 air quality sensor
+#include <DFRobot_CCS811.h> // CCS811 air quality sensor
 
 
 // Radio Communication Libraries
@@ -45,7 +45,7 @@
 // Sensor Objects
 Adafruit_BME280 bme;         // BME280 sensor object
 Adafruit_MLX90614 mlx;       // MLX90614 infrared sensor object
-CCS811 ccs811;               // CCS811 air quality sensor object
+DFRobot_CCS811 ccs811;               // CCS811 air quality sensor object
 RF24 radio(RADIO_CE_PIN, RADIO_CSN_PIN); // RF24 radio object
 
 // Sensor Availability Flags
@@ -181,18 +181,13 @@ void initializeTSL2591() {
 void initializeCCS811() {
   selectI2CChannel(TCA_CHANNEL_3);
   
-  if (ccs811.begin()) {
-    ccs811_sensor_available = true;
-    Serial.println(F("CCS811 air quality sensor initialized successfully (Channel 3)"));
-    
-    // Configure CCS811 for environmental measurements
-    ccs811.setDriveMode(1); // 1 = 1 second measurements
-    Serial.println(F("CCS811 configured for 1-second measurements"));
-  } else {
-    ccs811_sensor_available = false;
-    Serial.println(F("Could not find a valid CCS811 sensor, check wiring!"));
-    Serial.println(F("Using default values for CCS811 sensor data"));
+  while(ccs811.begin() != 0) {
+    Serial.println(F("failed to init chip, please check the chip connection"));
+    delay(1000);
   }
+  ccs811_sensor_available = true;
+  Serial.println(F("CCS811 air quality sensor initialized successfully (Channel 3)"));
+  Serial.println(F("CCS811 configured for default measurements"));
 }
 
 // Initialize nRF24L01 radio module
@@ -322,9 +317,7 @@ void readCCS811Data() {
   if (ccs811_sensor_available) {
     selectI2CChannel(TCA_CHANNEL_3);
     
-    if (ccs811.dataAvailable()) {
-      ccs811.readAlgorithmResults();
-      
+    if (ccs811.checkDataReady()) {
       // Environmental compensation using BME280 data
       if (bme_sensor_available) {
         // Get temperature and humidity from BME280 for compensation
@@ -334,7 +327,7 @@ void readCCS811Data() {
         
         // Set environmental data for CCS811 compensation
         selectI2CChannel(TCA_CHANNEL_3);
-        ccs811.setEnvironmentalData(humidity, temp);
+        ccs811.setInTempHum(temp, humidity);
         
         Serial.print(F("CCS811 Environmental Compensation - Temp: "));
         Serial.print(temp);
@@ -344,15 +337,15 @@ void readCCS811Data() {
       }
       
       // Get CO2 and TVOC values (now with environmental compensation)
-      uint16_t co2 = ccs811.getCO2();
-      uint16_t tvoc = ccs811.getTVOC();
+      uint16_t co2 = ccs811.getCO2PPM();
+      uint16_t tvoc = ccs811.getTVOCPPB();
       
       // Store values directly (CCS811 provides ppm values)
       results[12] = (int16_t)co2;   // CO2 in ppm
       results[13] = (int16_t)tvoc;  // TVOC in ppb
       
       // Get baseline values for calibration
-      uint16_t baseline = ccs811.getBaseline();
+      uint16_t baseline = ccs811.readBaseLine();
       results[14] = (int16_t)baseline; // Baseline for CO2 calibration
       
     } else {

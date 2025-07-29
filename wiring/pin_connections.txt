@@ -98,10 +98,11 @@ SENSOR DETAILED CONNECTIONS
 ================================================================================
    Pin    -> TCA9548A Channel 3
    -------  --------------------
-   VCC     -> 3.3V
+   VCC     -> 5V
    GND     -> GND
    SDA     -> TCA9548A SDA (Channel 3)
    SCL     -> TCA9548A SCL (Channel 3)
+   WAKE    -> GND
    
    I2C Address: 0x5B
    Function: CO2 and TVOC measurement

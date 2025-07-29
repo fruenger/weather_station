@@ -32,12 +32,12 @@
  */
 
 #include <Wire.h>
-#include <SparkFunCCS811.h>
+#include <DFRobot_CCS811.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BME280.h>
 
 // Create sensor objects
-CCS811 ccs811;
+DFRobot_CCS811 ccs811;
 Adafruit_BME280 bme;
 
 // Timing variables
@@ -78,24 +78,17 @@ void setup() {
   }
   
   // Initialize CCS811
-  if (ccs811.begin()) {
-    ccs811Ready = true;
-    Serial.println(F("CCS811 Sensor initialized successfully!"));
-    
-    // Set Drive Mode (1 = 1 second measurements)
-    ccs811.setDriveMode(1);
-    Serial.println(F("Drive Mode set to 1 second"));
-    
-    startTime = millis();
-    Serial.println(F("Sensor starting warm-up phase..."));
-    Serial.println(F("Wait 20 minutes for accurate measurements"));
-    Serial.println();
-    
-  } else {
-    Serial.println(F("ERROR: CCS811 Sensor not found!"));
-    Serial.println(F("Please check wiring and I2C address."));
-    while (1); // Infinite loop on error
+  while(ccs811.begin() != 0) {
+    Serial.println(F("failed to init chip, please check the chip connection"));
+    delay(1000);
   }
+  ccs811Ready = true;
+  Serial.println(F("CCS811 Sensor initialized successfully!"));
+  
+  startTime = millis();
+  Serial.println(F("Sensor starting warm-up phase..."));
+  Serial.println(F("Wait 20 minutes for accurate measurements"));
+  Serial.println();
   
   // Short pause
   delay(1000);
@@ -114,19 +107,16 @@ void loop() {
     }
     
     // Read CCS811 data (if available)
-    if (ccs811Ready && ccs811.dataAvailable()) {
-      // Read algorithm results
-      ccs811.readAlgorithmResults();
-      
+    if (ccs811Ready && ccs811.checkDataReady()) {
       // Environmental Compensation (if BME280 available)
       if (bmeReady) {
-        ccs811.setEnvironmentalData(humidity, temperature);
+        ccs811.setInTempHum(temperature, humidity);
       }
       
       // Read values
-      co2 = ccs811.getCO2();
-      tvoc = ccs811.getTVOC();
-      baseline = ccs811.getBaseline();
+      co2 = ccs811.getCO2PPM();
+      tvoc = ccs811.getTVOCPPB();
+      baseline = ccs811.readBaseLine();
       
       // Calculate warm-up time
       unsigned long warmupTime = (millis() - startTime) / 1000; // in seconds

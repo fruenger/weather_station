@@ -22,10 +22,10 @@
  */
 
 #include <Wire.h>
-#include <SparkFunCCS811.h>
+#include <DFRobot_CCS811.h>
 
 // Create sensor object
-CCS811 ccs811;
+DFRobot_CCS811 ccs811;
 
 // Timing variables
 unsigned long lastMeasurement = 0;
@@ -52,23 +52,16 @@ void setup() {
   Wire.begin();
   
   // Initialize sensor
-  if (ccs811.begin()) {
-    Serial.println(F("CCS811 Sensor initialized successfully!"));
-    
-    // Set Drive Mode (1 = 1 second measurements)
-    ccs811.setDriveMode(1);
-    Serial.println(F("Drive Mode set to 1 second"));
-    
-    startTime = millis();
-    Serial.println(F("Sensor starting warm-up phase..."));
-    Serial.println(F("Wait 20 minutes for accurate measurements"));
-    Serial.println();
-    
-  } else {
-    Serial.println(F("ERROR: CCS811 Sensor not found!"));
-    Serial.println(F("Please check wiring and I2C address."));
-    while (1); // Infinite loop on error
+  while(ccs811.begin() != 0) {
+    Serial.println(F("failed to init chip, please check the chip connection"));
+    delay(1000);
   }
+  Serial.println(F("CCS811 Sensor initialized successfully!"));
+  
+  startTime = millis();
+  Serial.println(F("Sensor starting warm-up phase..."));
+  Serial.println(F("Wait 20 minutes for accurate measurements"));
+  Serial.println();
   
   // Short pause
   delay(1000);
@@ -80,14 +73,11 @@ void loop() {
     lastMeasurement = millis();
     
     // Check if new data is available
-    if (ccs811.dataAvailable()) {
-      // Read algorithm results
-      ccs811.readAlgorithmResults();
-      
+    if (ccs811.checkDataReady()) {
       // Read values
-      co2 = ccs811.getCO2();
-      tvoc = ccs811.getTVOC();
-      baseline = ccs811.getBaseline();
+      co2 = ccs811.getCO2PPM();
+      tvoc = ccs811.getTVOCPPB();
+      baseline = ccs811.readBaseLine();
       
       // Calculate warm-up time
       unsigned long warmupTime = (millis() - startTime) / 1000; // in seconds
@@ -160,7 +150,7 @@ void loop() {
 
 // Set Environmental Data (for better accuracy)
 void setEnvironmentalData(float humidity, float temperature) {
-  ccs811.setEnvironmentalData(humidity, temperature);
+  ccs811.setInTempHum(temperature, humidity);
   Serial.print(F("Environmental Data set - Humidity: "));
   Serial.print(humidity);
   Serial.print(F("%, Temperature: "));
@@ -168,17 +158,19 @@ void setEnvironmentalData(float humidity, float temperature) {
   Serial.println(F("°C"));
 }
 
-// Change Drive Mode
-void setDriveMode(uint8_t mode) {
-  if (mode >= 0 && mode <= 4) {
-    ccs811.setDriveMode(mode);
-    Serial.print(F("Drive Mode set to "));
-    Serial.print(mode);
-    Serial.println(F(""));
-  } else {
-    Serial.println(F("ERROR: Drive Mode must be between 0 and 4"));
-  }
-}
+/*
+ * Note: The DFRobot_CCS811 library does not provide direct control over measurement cycles.
+ * The sensor operates in a default mode that provides measurements approximately every second.
+ * 
+ * According to the Joy-IT documentation, the CCS811 has the following modes:
+ * - Mode 0: Idle (no measurements)
+ * - Mode 1: IAQ measurement every second
+ * - Mode 2: IAQ measurement every 10 seconds  
+ * - Mode 3: IAQ measurement every 60 seconds
+ * - Mode 4: IAQ measurement every 250ms (raw data only)
+ * 
+ * The DFRobot library handles this internally.
+ */
 
 // Display sensor information
 void printSensorInfo() {
@@ -186,7 +178,7 @@ void printSensorInfo() {
   Serial.print(F("I2C Address: 0x"));
   Serial.println(0x5B, HEX);
   Serial.print(F("Current Baseline: 0x"));
-  Serial.println(ccs811.getBaseline(), HEX);
+  Serial.println(ccs811.readBaseLine(), HEX);
   Serial.println(F("================================="));
 }
 
