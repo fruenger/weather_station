@@ -1,6 +1,6 @@
 ================================================================================
                     WEATHER STATION PIN CONNECTIONS
-                    Version 3.0 - I2C Multiplexer + CCS811
+                    Version 2.0 - I2C Multiplexer + CCS811
 ================================================================================
 
 ARDUINO UNO PIN ASSIGNMENTS
