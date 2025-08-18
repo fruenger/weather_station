@@ -548,9 +548,11 @@ def readline(port_device, timestamp=True, max_retries=5):
                         time.sleep(0.1)  # Short wait before trying again
                         continue
                     else:
-                        # Only print non-null markers for debugging
-                        if marker != b'\x00':
-                            print(f"[DEBUG] Received marker: {marker} (hex: {marker.hex()})")
+                        # Skip text messages from Arduino (printable ASCII characters)
+                        if marker in b'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .,!?()[]{}:;\r\n\t':
+                            continue  # Skip text, don't print debug
+                        elif marker != b'\x00':
+                            print(f"[DEBUG] Received non-text marker: {marker} (hex: {marker.hex()})")
                 
                 # If we didn't find 'D' marker, try to read data directly
                 if data_bytes is None:
