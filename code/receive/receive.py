@@ -149,17 +149,7 @@ def try_connect_with_different_settings(port_device):
     Returns:
         Serial object or None if all attempts fail
     """
-    # Method 1: Try 115200 baud first (since it works reliably)
-    try:
-        print(f"[INFO] Trying 115200 baud connection on {port_device}")
-        serial = Serial(port_device, baudrate=115200, timeout=5, write_timeout=5)
-        print(f"[SUCCESS] Connected with 115200 baud")
-        return serial
-    except Exception as e:
-        print(f"[WARNING] Failed with 115200 baud: {e}")
-        time.sleep(1)
-    
-    # Method 2: Try 9600 baud as fallback
+    # Method 1: Try 9600 baud first (since it works reliably)
     try:
         print(f"[INFO] Trying 9600 baud connection on {port_device}")
         serial = Serial(port_device, baudrate=9600, timeout=5, write_timeout=5)
@@ -167,6 +157,16 @@ def try_connect_with_different_settings(port_device):
         return serial
     except Exception as e:
         print(f"[WARNING] Failed with 9600 baud: {e}")
+        time.sleep(1)
+    
+    # Method 2: Try 115200 baud as fallback
+    try:
+        print(f"[INFO] Trying 115200 baud connection on {port_device}")
+        serial = Serial(port_device, baudrate=115200, timeout=5, write_timeout=5)
+        print(f"[SUCCESS] Connected with 115200 baud")
+        return serial
+    except Exception as e:
+        print(f"[WARNING] Failed with 115200 baud: {e}")
         time.sleep(1)
     
     # Method 3: Try other baud rates as last resort
