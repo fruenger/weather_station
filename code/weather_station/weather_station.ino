@@ -34,13 +34,14 @@
 #define RADIO_CE_PIN 9       // nRF24L01 CE pin
 #define RADIO_CSN_PIN 8      // nRF24L01 CSN pin
 #define RADIO_CHANNEL 76     // Radio channel to avoid interference
+static const uint8_t RF_ADDRESS[5] = {'9','9','9','9','9'}; // 5-byte pipe address
 
 // I2C Multiplexer Configuration
 #define TCA9548A_ADDRESS 0x70  // I2C address of TCA9548A multiplexer
-#define TCA_CHANNEL_0 0x01     // Channel 0: BME280
-#define TCA_CHANNEL_1 0x02     // Channel 1: MLX90614
-#define TCA_CHANNEL_2 0x04     // Channel 2: TSL2591
-#define TCA_CHANNEL_3 0x08     // Channel 3: CCS811
+#define TCA_CHANNEL_0 0x01     // Channel 0: CCS811
+#define TCA_CHANNEL_1 0x02     // Channel 1: BME280
+#define TCA_CHANNEL_3 0x08     // Channel 3: MLX90614
+#define TCA_CHANNEL_4 0x10     // Channel 4: TSL2591
 
 // Sensor Objects
 Adafruit_BME280 bme;         // BME280 sensor object
@@ -91,7 +92,7 @@ void setup() {
   Serial.println(F("Weather Station Sender Starting..."));
   Serial.println(F("Version 2.0"));
 
-  // Initialize rain sensor pins
+  // Initialize rain drop sensor pins
   pinMode(RAIN_REED_PIN, INPUT);
   pinMode(RAIN_DROP_DIGITAL_PIN, INPUT);
 
@@ -133,7 +134,7 @@ void selectI2CChannel(uint8_t channel) {
 
 // Initialize BME280 temperature, humidity, pressure sensor
 void initializeBME280() {
-  selectI2CChannel(TCA_CHANNEL_0);
+  selectI2CChannel(TCA_CHANNEL_1);
   
   unsigned status = bme.begin(0x76);
   
@@ -144,17 +145,17 @@ void initializeBME280() {
     bme_sensor_available = false;
   } else {
     bme_sensor_available = true;
-    Serial.println(F("BME280 sensor initialized successfully (Channel 0)"));
+    Serial.println(F("BME280 sensor initialized successfully (Channel 1)"));
   }
 }
 
 // Initialize MLX90614 infrared temperature sensor
 void initializeMLX90614() {
-  selectI2CChannel(TCA_CHANNEL_1);
+  selectI2CChannel(TCA_CHANNEL_3);
   
   if (mlx.begin()) {
     mlx_sensor_available = true;
-    Serial.println(F("MLX90614 infrared temperature sensor initialized successfully (Channel 1)"));
+    Serial.println(F("MLX90614 infrared temperature sensor initialized successfully (Channel 3)"));
     Serial.print(F("Emissivity = ")); Serial.println(mlx.readEmissivity());
   } else {
     mlx_sensor_available = false;
@@ -165,12 +166,12 @@ void initializeMLX90614() {
 
 // Initialize TSL2591 light sensor
 void initializeTSL2591() {
-  selectI2CChannel(TCA_CHANNEL_2);
+  selectI2CChannel(TCA_CHANNEL_4);
   
   DEV_ModuleInit();
   if (TSL2591_Init() == 0) {
     light_sensor_available = true;
-    Serial.println(F("TSL2591 light sensor initialized successfully (Channel 2)"));
+    Serial.println(F("TSL2591 light sensor initialized successfully (Channel 4)"));
   } else {
     light_sensor_available = false;
     Serial.println(F("Could not initialize TSL2591 light sensor, using default values"));
@@ -179,28 +180,47 @@ void initializeTSL2591() {
 
 // Initialize CCS811 air quality sensor
 void initializeCCS811() {
-  selectI2CChannel(TCA_CHANNEL_3);
+  selectI2CChannel(TCA_CHANNEL_0);
   
-  while(ccs811.begin() != 0) {
-    Serial.println(F("failed to init chip, please check the chip connection"));
+  int attempts = 0;
+  const int maxAttempts = 20;
+  
+  while(ccs811.begin() != 0 && attempts < maxAttempts) {
+    attempts++;
+    Serial.print(F("CCS811 initialization attempt "));
+    Serial.print(attempts);
+    Serial.print(F("/"));
+    Serial.print(maxAttempts);
+    Serial.println(F(" failed"));
     delay(1000);
   }
-  ccs811_sensor_available = true;
-  Serial.println(F("CCS811 air quality sensor initialized successfully (Channel 3)"));
-  Serial.println(F("CCS811 configured for default measurements"));
+  
+  if (attempts >= maxAttempts) {
+    ccs811_sensor_available = false;
+    Serial.println(F("CCS811 sensor initialization failed after 20 attempts"));
+    Serial.println(F("Using default values for CCS811 sensor data"));
+  } else {
+    ccs811_sensor_available = true;
+    Serial.println(F("CCS811 air quality sensor initialized successfully (Channel 0)"));
+    Serial.println(F("CCS811 configured for default measurements"));
+  }
 }
 
 // Initialize nRF24L01 radio module
 void initializeRadio() {
   if (radio.begin()) {
-    radio.openWritingPipe((const uint8_t*)"99999");
+    // Align with receiver
+    radio.setAddressWidth(5);
+    radio.setCRCLength(RF24_CRC_16);
+    radio.setAutoAck(true);
+    radio.setDataRate(RF24_1MBPS);
+    radio.setPayloadSize(32);
+    radio.setChannel(RADIO_CHANNEL);
+    radio.setPALevel(RF24_PA_HIGH);
+
+    radio.openWritingPipe(RF_ADDRESS); // 5-byte address
+    radio.flush_tx();
     radio.stopListening();
-    
-    // Configure RF24 for reliable transmission
-    radio.setRetries(3, 15);        // 3 retries, 15ms delay between retries
-    radio.setPayloadSize(32);       // nRF24L01 hardware limit: 32 bytes max
-    radio.setChannel(RADIO_CHANNEL); // Use channel 76 to avoid interference
-    radio.setPALevel(RF24_PA_HIGH); // High power for better range
     
     radio_available = true;
     Serial.println(F("RF24 radio initialized successfully"));
@@ -258,17 +278,18 @@ void loop() {
 // Read BME280 temperature, humidity, pressure data
 void readBME280Data() {
   if (bme_sensor_available) {
-    selectI2CChannel(TCA_CHANNEL_0);
+    selectI2CChannel(TCA_CHANNEL_1);
     
     float temp = bme.readTemperature();
-    float pressure = bme.readPressure();
+    float pressure_pa = bme.readPressure();      // Pa from library
+    float pressure_hpa = pressure_pa / 100.0f;   // convert to hPa
     float humidity = bme.readHumidity();
     
     // Scale temperature by 100 (e.g., 23.45°C -> 2345)
     results[1] = (int16_t)(temp * 100.0);
     
-    // Scale pressure by 10 (e.g., 1013.25 hPa -> 10132)
-    results[2] = (int16_t)(pressure * 10.0);
+    // Scale pressure (hPa) by 10 (e.g., 1013.25 hPa -> 10132)
+    results[2] = (int16_t)(pressure_hpa * 10.0f);
     
     // Scale humidity by 100 (e.g., 45.67% -> 4567)
     results[3] = (int16_t)(humidity * 100.0);
@@ -283,7 +304,7 @@ void readBME280Data() {
 // Read MLX90614 infrared temperature sensor data
 void readMLX90614Data() {
   if (mlx_sensor_available) {
-    selectI2CChannel(TCA_CHANNEL_1);
+    selectI2CChannel(TCA_CHANNEL_3);
     
     float sky_temp = mlx.readObjectTempC();  // Sky temperature (infrared)
     float box_temp = mlx.readAmbientTempC(); // Temperature of weather station box (internal sensor)
@@ -301,7 +322,7 @@ void readMLX90614Data() {
 // Read TSL2591 light sensor data
 void readTSL2591Data() {
   if (light_sensor_available) {
-    selectI2CChannel(TCA_CHANNEL_2);
+    selectI2CChannel(TCA_CHANNEL_4);
     
     uint32_t lux_raw = TSL2591_Read_Lux();
     // Scale light by 1 (direct lux value, max 65535)
@@ -315,18 +336,18 @@ void readTSL2591Data() {
 // Read CCS811 air quality sensor data
 void readCCS811Data() {
   if (ccs811_sensor_available) {
-    selectI2CChannel(TCA_CHANNEL_3);
+    selectI2CChannel(TCA_CHANNEL_0);
     
     if (ccs811.checkDataReady()) {
       // Environmental compensation using BME280 data
       if (bme_sensor_available) {
         // Get temperature and humidity from BME280 for compensation
-        selectI2CChannel(TCA_CHANNEL_0);
+        selectI2CChannel(TCA_CHANNEL_1);
         float temp = bme.readTemperature();
         float humidity = bme.readHumidity();
         
         // Set environmental data for CCS811 compensation
-        selectI2CChannel(TCA_CHANNEL_3);
+        selectI2CChannel(TCA_CHANNEL_0);
         ccs811.setInTempHum(temp, humidity);
         
         Serial.print(F("CCS811 Environmental Compensation - Temp: "));
@@ -375,14 +396,11 @@ void readRainReedData() {
   if (currentState != lastState) {
     // Debounce: minimum 250ms between changes to prevent false triggers
     if ((millis() - lastChanged) > 250) {
-      if (currentState == HIGH && lastState == LOW) {
-        // Rising edge detected - rain tip occurred
-        accumulated_rain_tips++;
-        rain_data_pending = true;
-        
-        Serial.print(F("Rain tip detected! Accumulated: "));
-        Serial.println(accumulated_rain_tips);
-      }
+      accumulated_rain_tips++;
+      rain_data_pending = true;
+      
+      Serial.print(F("Rain tip detected! Accumulated: "));
+      Serial.println(accumulated_rain_tips);
       lastState = currentState;
       lastChanged = millis();
     }

@@ -22,23 +22,40 @@ uint16_t lastPacketNumber = 0;
 uint16_t receivedPackets = 0;
 uint16_t lostPackets = 0;
 
+// Sync/validity management
+static bool isSynced = false;
+static unsigned long lastPacketMs = 0;
+
 void setup()
 {
   while (!Serial);
   Serial.begin(9600);
   
   radio.begin();
-  
-  //set the address
+
+  // Configure radio to match transmitter settings and reduce false positives
+  radio.setChannel(76);            // must match sender
+  radio.setPayloadSize(32);        // fixed 32 bytes payload
+  radio.setCRCLength(RF24_CRC_16); // robust CRC
+  radio.setAutoAck(true);          // use auto-ack
+  radio.setRetries(3, 15);         // retries similar to sender
+  radio.setPALevel(RF24_PA_HIGH);  // adequate power level
+
+  // Set the address and start listening
   radio.openReadingPipe(0, address);
-  
-  //Set module as receiver
+  radio.flush_rx();                // clear any stale data
+  radio.flush_tx();
   radio.startListening();
 
   delay(500);
   
   Serial.println(F("Weather Station Receiver Starting..."));
   Serial.println(F("Version 2.0"));
+}
+
+// Helper: modulo-65536 increment check
+static inline bool isNextModulo(uint16_t current, uint16_t previous) {
+  return current == (uint16_t)(previous + 1);
 }
 
 void loop()
@@ -50,21 +67,39 @@ void loop()
     
     // Extract packet number from results[7]
     uint16_t currentPacketNumber = (uint16_t)results[7];
-    receivedPackets++;
-    
-    // Check for lost packets
-    if (lastPacketNumber != 0) {  // Skip first packet
-      uint16_t expectedPacket = lastPacketNumber + 1;
-      if (currentPacketNumber != expectedPacket) {
-        lostPackets += (currentPacketNumber - expectedPacket);
-        // Debug-Ausgabe nur für Serial Monitor (nicht für Python)
-        Serial.print(F("[DEBUG] Lost packets detected! Expected: "));
-        Serial.print(expectedPacket);
-        Serial.print(F(", Received: "));
-        Serial.println(currentPacketNumber);
+    unsigned long nowMs = millis();
+
+    // If long idle gap or not synced, accept the next packet as new sync point
+    if (!isSynced || (nowMs - lastPacketMs) > 5000UL) {
+      isSynced = true;
+      lastPacketNumber = currentPacketNumber;
+      lastPacketMs = nowMs;
+      // fall through to printing this packet
+    } else {
+      // Validate expected sequence with wrap-around; count losses but do not drop output
+      if (!isNextModulo(currentPacketNumber, lastPacketNumber)) {
+        bool looksLikeReset = (currentPacketNumber <= 5);
+        if (looksLikeReset) {
+          // Treat as sender reset: restart sequence from this packet without counting loss
+          lastPacketNumber = currentPacketNumber;
+          lastPacketMs = nowMs;
+        } else {
+          uint16_t expected = (uint16_t)(lastPacketNumber + 1);
+          uint16_t diff = (uint16_t)(currentPacketNumber - expected);
+          lostPackets = (uint16_t)(lostPackets + diff);
+          lastPacketNumber = currentPacketNumber;
+          lastPacketMs = nowMs;
+        }
+      } else {
+        // Normal in-order packet
+        lastPacketNumber = currentPacketNumber;
+        lastPacketMs = nowMs;
       }
     }
-    lastPacketNumber = currentPacketNumber;
+
+    // Sequence trackers updated above
+
+    receivedPackets++;
 
     // Send data marker for Python script
     Serial.print('D');
@@ -101,7 +136,7 @@ void loop()
   }
   
   // Print statistics every 100 packets
-  if (receivedPackets % 100 == 0) {
+  if (receivedPackets % 100 == 0 && receivedPackets > 0) {
     Serial.print(F("Statistics - Received: "));
     Serial.print(receivedPackets);
     Serial.print(F(", Lost: "));

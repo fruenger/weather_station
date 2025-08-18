@@ -27,7 +27,7 @@ from serial import Serial
 from serial.tools import list_ports
 import time
 import numpy as np
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 import struct
 import requests
 import threading
@@ -133,7 +133,7 @@ def convert_scaled_data_to_physical(data):
     
     # Convert scaled values back to physical units
     temperature = temp_scaled / 100.0  # Convert back from scaled integer
-    pressure = pressure_scaled / 10.0  # Convert back from scaled integer 
+    pressure = pressure_scaled / 10.0  # Convert back from scaled integer (hPa)
     humidity = humidity_scaled / 100.0  # Convert back from scaled integer
     sky_temp = sky_temp_scaled / 100.0  # Convert back from scaled integer
     box_temp = box_temp_scaled / 100.0  # Convert back from scaled integer
@@ -146,8 +146,7 @@ def convert_scaled_data_to_physical(data):
     #   - => 1.25*75.34 = 0.094175mm/m^2
     rain_mm = rain_tips * 1.25  # Convert tips to mm (1.25 mm per tip)
     wind_speed = wind_revolutions * 1.0  # Convert revolutions to m/s (adjust factor as needed)
-    # TODO: check if this following line is necessary
-    pressure = pressure / 100.0  # Convert back to hPa
+    # pressure is already in hPa from scaled integer; no further conversion here
     
     # Convert rain detection to boolean
     is_raining = bool(rain_detection)
@@ -187,7 +186,7 @@ def upload_data_to_server(data, username, password, server_url):
     """
     try:
         # Prepare data for upload
-        jd = Time(datetime.datetime.now(datetime.timezone.utc)).jd
+        jd = Time(datetime.now(timezone.utc)).jd
         
         upload_data = {
             'jd'          : jd,
@@ -275,10 +274,11 @@ def upload_worker(data_queue, failed_data_file, username, password, server_url):
             time.sleep(1)
 
 
-def readline(timestamp=True, max_retries=3):
+def readline(port_device, timestamp=True, max_retries=3):
     """Read a line of data from serial port with retry mechanism.
     
     Args:
+        port_device (str): Serial device path (e.g., '/dev/ttyUSB0')
         timestamp (bool): Whether to include timestamp
         max_retries (int): Maximum number of retry attempts
         
@@ -290,7 +290,7 @@ def readline(timestamp=True, max_retries=3):
     """
     for attempt in range(max_retries):
         try:
-            with Serial(comport.usb_description(), timeout=1) as serial:  # Short timeout for non-blocking
+            with Serial(port_device, baudrate=9600, timeout=1) as serial:  # Short timeout for non-blocking
                 
                 # Wait for data marker 'D' with timeout
                 start_time = time.time()
@@ -373,7 +373,7 @@ def main():
     while True:
         try:
             # Read data from serial (this is the only blocking operation)
-            data_table = readline(timestamp=False)
+            data_table = readline(comport.device, timestamp=False)
             print("[INFO] Measurement completed!")
             
             # Convert scaled integer data to physical units
@@ -399,7 +399,7 @@ def main():
             print(f"[DATA] Timestamp: {timestamp}, Temp: {temperature}°C, Pressure: {pressure} hPa, Humidity: {humidity}%, Light: {illuminance} lux, Wind: {wind_speed} m/s, Rain: {rain} mm, Sky: {sky_temp}°C, Box: {box_temp}°C, Raining: {'YES' if is_raining else 'NO'}, Analog: {rain_analog}, CO2: {co2_ppm} ppm, TVOC: {tvoc_ppb} ppb, Baseline: {baseline}, Packet: {packet_number}")
             
             # Prepare data for upload
-            jd = Time(datetime.datetime.now(datetime.timezone.utc)).jd
+            jd = Time(datetime.now(timezone.utc)).jd
             data = {
                 'jd'          : jd,
                 'temperature' : temperature,
@@ -407,14 +407,16 @@ def main():
                 'humidity'    : humidity,
                 'illuminance' : illuminance,
                 'wind_speed'  : wind_speed,
-                'rain'        : rain,
+                'rain'        : rain,      # kept for compatibility (not used downstream)
+                'rain_mm'     : rain,      # required by upload/save helpers
                 'sky_temp'    : sky_temp,
                 'box_temp'    : box_temp,
                 'is_raining'  : 1 if is_raining else 0,  # Convert boolean to integer for server
                 'rain_analog' : rain_analog,
                 'co2_ppm'     : co2_ppm,
                 'tvoc_ppb'    : tvoc_ppb,
-                'baseline'    : baseline
+                'baseline'    : baseline,
+                'packet_number': packet_number
             }
 
             # Add data to upload queue (non-blocking)

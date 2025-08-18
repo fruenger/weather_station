@@ -21,6 +21,7 @@ DIGITAL PINS:
 -------------
 D2  -> Rain Reed Sensor (Rain Amount Counter)
 D3  -> Anemometer Signal (Wind Speed - Hall Sensor)
+D4  -> Reset Pin (Watchdog/Manual Reset)
 D5  -> Rain Drop Sensor Digital Pin
 D8  -> nRF24L01 CSN (Chip Select)
 D9  -> nRF24L01 CE (Chip Enable)
@@ -43,10 +44,10 @@ Address: 0x70
 Function: Routes I2C communication to multiple sensors
 
 Channel Assignments:
-- Channel 0 (0x01) -> BME280 (Temperature, Humidity, Pressure)
-- Channel 1 (0x02) -> MLX90614 (Infrared Temperature)
-- Channel 2 (0x04) -> TSL2591 (Light Sensor)
-- Channel 3 (0x08) -> CCS811 (Air Quality Sensor)
+- Channel 0 (0x01) -> CCS811 (Air Quality Sensor)
+- Channel 1 (0x02) -> BME280 (Temperature, Humidity, Pressure)
+- Channel 3 (0x08) -> MLX90614 (Infrared Temperature)
+- Channel 4 (0x10) -> TSL2591 (Light Sensor)
 
 Connections:
 - VCC -> 3.3V
@@ -60,18 +61,6 @@ SENSOR DETAILED CONNECTIONS
 
 1. BME280 (Temperature, Humidity, Pressure Sensor)
 ================================================================================
-   Pin    -> TCA9548A Channel 0
-   -------  --------------------
-   VCC     -> 3.3V
-   GND     -> GND
-   SDA     -> TCA9548A SDA (Channel 0)
-   SCL     -> TCA9548A SCL (Channel 0)
-   
-   I2C Address: 0x76
-   Function: Temperature, Humidity, Pressure measurement
-
-2. MLX90614 (Infrared Temperature Sensor)
-================================================================================
    Pin    -> TCA9548A Channel 1
    -------  --------------------
    VCC     -> 3.3V
@@ -79,29 +68,41 @@ SENSOR DETAILED CONNECTIONS
    SDA     -> TCA9548A SDA (Channel 1)
    SCL     -> TCA9548A SCL (Channel 1)
    
+   I2C Address: 0x76
+   Function: Temperature, Humidity, Pressure measurement
+
+2. MLX90614 (Infrared Temperature Sensor)
+================================================================================
+   Pin    -> TCA9548A Channel 3
+   -------  --------------------
+   VCC     -> 3.3V
+   GND     -> GND
+   SDA     -> TCA9548A SDA (Channel 3)
+   SCL     -> TCA9548A SCL (Channel 3)
+   
    I2C Address: 0x5A
    Function: Infrared temperature measurement (sky and box temperature)
 
 3. TSL2591 (Light Sensor)
 ================================================================================
-   Pin    -> TCA9548A Channel 2
+   Pin    -> TCA9548A Channel 4
    -------  --------------------
    VCC     -> 3.3V
    GND     -> GND
-   SDA     -> TCA9548A SDA (Channel 2)
-   SCL     -> TCA9548A SCL (Channel 2)
+   SDA     -> TCA9548A SDA (Channel 4)
+   SCL     -> TCA9548A SCL (Channel 4)
    
    I2C Address: 0x29
    Function: Light intensity measurement
 
 4. CCS811 (Air Quality Sensor)
 ================================================================================
-   Pin    -> TCA9548A Channel 3
+   Pin    -> TCA9548A Channel 0
    -------  --------------------
-   VCC     -> 5V
+   VCC     -> 3.3V
    GND     -> GND
-   SDA     -> TCA9548A SDA (Channel 3)
-   SCL     -> TCA9548A SCL (Channel 3)
+   SDA     -> TCA9548A SDA (Channel 0)
+   SCL     -> TCA9548A SCL (Channel 0)
    WAKE    -> GND
    
    I2C Address: 0x5B
@@ -153,9 +154,9 @@ SENSOR DETAILED CONNECTIONS
    GND     -> GND
    CE      -> D9 (Chip Enable)
    CSN     -> D8 (Chip Select)
-   MOSI    -> D10 (Master Out Slave In)
-   MISO    -> D11 (Master In Slave Out)
-   SCK     -> D12 (Serial Clock)
+   MOSI    -> D11 (Master Out Slave In)
+   MISO    -> D12 (Master In Slave Out)
+   SCK     -> D13 (Serial Clock)
    
    Function: Wireless data transmission
    Note: Uses SPI communication protocol
@@ -179,14 +180,19 @@ I2C MULTIPLEXER:
 
 I2C ADDRESSES:
 - TCA9548A Multiplexer: 0x70
-- BME280: 0x76 (Channel 0)
-- MLX90614: 0x5A (Channel 1)
-- TSL2591: 0x29 (Channel 2)
-- CCS811: 0x5B (Channel 3)
+- BME280: 0x76 (Channel 1)
+- MLX90614: 0x5A (Channel 3)
+- TSL2591: 0x29 (Channel 4)
+- CCS811: 0x5B (Channel 0)
 
 INTERRUPTS:
 - D3 is used for anemometer interrupt
 - This pin must be configured as interrupt for accurate wind speed measurement
+
+RESET FUNCTIONALITY:
+- D4 is used for watchdog reset and manual reset capability
+- Auto-reset occurs every hour (3600000ms) to prevent system lockups
+- Manual reset can be triggered by external circuit if needed
 
 SPI BUS:
 - nRF24L01 uses SPI communication (D8-D13)
@@ -224,6 +230,7 @@ A4          | TCA9548A (SDA)      | I2C data line
 A5          | TCA9548A (SCL)      | I2C clock line
 D2          | Rain Reed Sensor     | Rain amount counter
 D3          | Anemometer           | Wind speed (interrupt)
+D4          | Reset Pin            | Watchdog/Manual reset
 D5          | Rain Drop Sensor     | Digital rain detection
 D8          | nRF24L01 (CSN)      | SPI chip select
 D9          | nRF24L01 (CE)       | SPI chip enable
@@ -238,11 +245,11 @@ I2C MULTIPLEXER CHANNEL ASSIGNMENTS
 
 TCA9548A Channel | Sensor        | I2C Address | Function
 ------------------|---------------|-------------|------------------
-Channel 0 (0x01)  | BME280       | 0x76        | Temperature, Humidity, Pressure
-Channel 1 (0x02)  | MLX90614     | 0x5A        | Infrared Temperature
-Channel 2 (0x04)  | TSL2591      | 0x29        | Light Sensor
-Channel 3 (0x08)  | CCS811       | 0x5B        | Air Quality (CO2, TVOC)
-Channel 4 (0x10)  | Reserved     | -           | Future expansion
+Channel 0 (0x01)  | CCS811       | 0x5B        | Air Quality (CO2, TVOC)
+Channel 1 (0x02)  | BME280       | 0x76        | Temperature, Humidity, Pressure
+Channel 2 (0x04)  | Reserved     | -           | Future expansion
+Channel 3 (0x08)  | MLX90614     | 0x5A        | Infrared Temperature
+Channel 4 (0x10)  | TSL2591      | 0x29        | Light Sensor
 Channel 5 (0x20)  | Reserved     | -           | Future expansion
 Channel 6 (0x40)  | Reserved     | -           | Future expansion
 Channel 7 (0x80)  | Reserved     | -           | Future expansion
