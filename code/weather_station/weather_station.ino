@@ -325,8 +325,10 @@ void readTSL2591Data() {
     selectI2CChannel(TCA_CHANNEL_4);
     
     uint32_t lux_raw = TSL2591_Read_Lux();
-    // Scale light by 1 (direct lux value, max 65535)
-    results[4] = (int16_t)min(lux_raw, 65535UL);
+    // Scale light by dividing by 100 to fit in int16_t range (max 655.35 lux)
+    // This prevents overflow while maintaining reasonable precision
+    uint32_t lux_scaled = lux_raw / 100;
+    results[4] = (int16_t)min(lux_scaled, 65535UL);
   } else {
     // Use default value if sensor is not available
     results[4] = 0; // illuminance default

@@ -72,8 +72,8 @@ def validate_sensor_data(data):
         print(f"[WARNING] Humidity out of range: {humidity}% (scaled: {humidity_scaled})")
         return False
     
-    if not (0 <= illuminance <= 65535):  # Light range (lux)
-        print(f"[WARNING] Illuminance out of range: {illuminance} lux")
+    if not (0 <= illuminance <= 65535):  # Light range (scaled lux, max 655.35 actual lux)
+        print(f"[WARNING] Illuminance out of range: {illuminance} (scaled), {illuminance * 100.0} lux (actual)")
         return False
     
     if not (0 <= rain_tips <= 65535):  # Rain tips range
@@ -138,6 +138,9 @@ def convert_scaled_data_to_physical(data):
     sky_temp = sky_temp_scaled / 100.0  # Convert back from scaled integer
     box_temp = box_temp_scaled / 100.0  # Convert back from scaled integer
     
+    # Convert illuminance from scaled value (divided by 100 in Arduino) back to actual lux
+    illuminance_actual = illuminance * 100.0  # Convert back to actual lux
+    
     # Calculate derived values
     # Rain:
     #   - 1.25 ml per dipper change
@@ -156,7 +159,7 @@ def convert_scaled_data_to_physical(data):
         'temperature': temperature,
         'pressure': pressure,
         'humidity': humidity,
-        'illuminance': illuminance,
+        'illuminance': illuminance_actual,  # Use corrected lux value
         'rain_tips': rain_tips,
         'rain_mm': rain_mm,
         'wind_revolutions': wind_revolutions,
