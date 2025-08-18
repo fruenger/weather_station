@@ -574,6 +574,12 @@ def main():
     comport = None
     port_search_terms = get_arduino_port_search()
     
+    # List all available ports for debugging
+    print("[INFO] Available COM ports:")
+    for port in list_ports.comports():
+        print(f"  - {port.device}: {port.description}")
+    
+    # Try to find Arduino using search terms
     for port in list_ports.comports():
         for term in port_search_terms:
             if term in port.description or term in port.device:
@@ -582,12 +588,26 @@ def main():
         if comport:
             break
     
+    # If not found, try common Arduino port descriptions
+    if not comport:
+        print("[INFO] Trying common Arduino port descriptions...")
+        common_terms = ["USB-SERIAL CH340", "Arduino", "CH340", "USB Serial Device"]
+        for port in list_ports.comports():
+            for term in common_terms:
+                if term in port.description:
+                    comport = port
+                    print(f"[INFO] Found Arduino using common term '{term}' on {port.device}")
+                    break
+            if comport:
+                break
+    
     if not comport:
         print("[ERROR] Arduino not found!")
         print(f"[INFO] Searched for: {port_search_terms}")
+        print("[INFO] Also tried common terms: USB-SERIAL CH340, Arduino, CH340, USB Serial Device")
         return
     
-    print(f"[INFO] Found Arduino on {comport.device}")
+    print(f"[INFO] Found Arduino on {comport.device}: {comport.description}")
     
     # Check if Arduino IDE might be running
     if check_arduino_ide_running():
