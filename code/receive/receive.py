@@ -140,23 +140,24 @@ def try_read_data_directly(serial, timeout=5):
         return None
 
 
-def try_connect_with_different_settings(port_device):
-    """Connect with default baud rate (no explicit baudrate setting).
+def find_port(port_name):
+    """Find the correct COM port that matches the description.
     
     Args:
-        port_device (str): COM port device (e.g., 'COM12')
-        
+        port_name (str): The desired COM port's name.
+    
     Returns:
-        Serial object or None if connection fails
+        Com port object or None if not found.
     """
-    try:
-        print(f"[INFO] Connecting with default settings on {port_device}")
-        serial = Serial(port_device, timeout=5, write_timeout=5)
-        print(f"[SUCCESS] Connected with default settings")
-        return serial
-    except Exception as e:
-        print(f"[ERROR] Failed to connect with default settings: {e}")
-        return None
+    all_comports = list_ports.comports()
+    all_port_descriptions = [portinfo.description for portinfo in all_comports]
+    
+    for i, description in enumerate(all_port_descriptions):
+        if description.find(port_name) > -1:
+            comport = all_comports[i]
+            return comport
+    
+    return None
 
 
 def check_arduino_ide_running():
@@ -458,96 +459,58 @@ def upload_worker(data_queue, failed_data_file, username, password, server_url):
             time.sleep(1)
 
 
-def readline(port_device, timestamp=True, max_retries=5):
-    """Read a line of data from serial port with retry mechanism.
+def readline(port_name, timestamp=True):
+    """Read a line of data from serial port with marker detection.
     
     Args:
-        port_device (str): Serial device path (e.g., '/dev/ttyUSB0')
+        port_name (str): The port name to connect to.
         timestamp (bool): Whether to include timestamp
-        max_retries (int): Maximum number of retry attempts
         
     Returns:
         tuple: (timestamp, data) or data depending on timestamp parameter
-        
-    Raises:
-        RuntimeError: If data cannot be read after max_retries
     """
-    for attempt in range(max_retries):
-        try:
-            # Simple retry with delay
-            if attempt > 0:
-                print(f"[INFO] Retry attempt {attempt + 1}/{max_retries}")
-                time.sleep(3)  # Wait between retries
-            
-            # Connect with 9600 baud
-            serial = try_connect_with_different_settings(port_device)
-            if serial is None:
-                raise RuntimeError("Could not establish connection")
-                
-            try:
-                # Clear any existing data in the buffer
-                serial.reset_input_buffer()
-                serial.reset_output_buffer()
-                
-                # Wait for Arduino to start sending data
-                if not wait_for_arduino_data(serial, timeout=15):
-                    raise RuntimeError("Arduino not sending data")
-                
-                # Try to find data marker 'D' or read data directly
-                data_bytes = None
-                start_time = time.time()
-                while (time.time() - start_time) < 10:  # Increased timeout to 10 seconds
-                    marker = serial.read(1)
-                    if marker == b'D':
-                        # Found marker, read data normally
-                        data_bytes = serial.read(32)
-                        if len(data_bytes) != 32:
-                            print(f"[WARNING] Incomplete data received: {len(data_bytes)} bytes instead of 32")
-                            print(f"[DEBUG] Data received: {data_bytes.hex()}")
-                            raise RuntimeError(f"Incomplete data received: {len(data_bytes)} bytes instead of 32")
-                        
-                        # Check for end marker (optional)
-                        end_marker = serial.read(1)
-                        if end_marker != b'E':
-                            print(f"[WARNING] Invalid or missing end marker: {end_marker} (hex: {end_marker.hex()})")
-                        break
-                    elif marker == b'':  # No data available
-                        time.sleep(0.1)  # Short wait before trying again
-                        continue
-                    else:
-                        # Skip text messages from Arduino (printable ASCII characters)
-                        if marker in b'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .,!?()[]{}:;\r\n\t':
-                            continue  # Skip text, don't print debug
-                        elif marker != b'\x00':
-                            print(f"[DEBUG] Received non-text marker: {marker} (hex: {marker.hex()})")
-                
-                # If we didn't find 'D' marker, try to read data directly
-                if data_bytes is None:
-                    print("[WARNING] Data marker 'D' not found, attempting to read data directly")
-                    data_bytes = try_read_data_directly(serial, timeout=5)
-                    if data_bytes is None:
-                        raise RuntimeError("Could not read data directly")
-                
-                # Unpack data as 16 int16_t values
-                data = struct.unpack('16h', data_bytes)  # 'h' for int16_t
-                
-                # Validate data (check for reasonable ranges)
-                if not validate_sensor_data(data):
-                    raise RuntimeError("Sensor data validation failed")
-                
-                if timestamp:
-                    return (str(date.today()) + " " + datetime.now().strftime("%H:%M:%S"), data)
-                else:
-                    return data
-            finally:
-                # Always close the serial connection
-                serial.close()
-                    
-        except Exception as e:
-            print(f"[ERROR] Attempt {attempt + 1}/{max_retries} failed: {e}")
-            if attempt == max_retries - 1:
-                raise RuntimeError(f"Failed to read data after {max_retries} attempts")
-            time.sleep(1)  # Longer wait before retry
+    comport = find_port(port_name)
+    if comport is None:
+        raise RuntimeError(f"Port '{port_name}' not found")
+    
+    with Serial(comport.device) as serial:
+        # Wait for start marker 'D'
+        start_time = time.time()
+        while (time.time() - start_time) < 10:  # 10 second timeout
+            marker = serial.read(1)
+            if marker == b'D':
+                break
+            elif marker == b'':  # No data available
+                time.sleep(0.1)
+                continue
+            else:
+                # Skip any other characters (like text messages from Arduino)
+                continue
+        
+        if marker != b'D':
+            raise RuntimeError("Start marker 'D' not found within timeout")
+        
+        # Read exactly 32 bytes (16 int16_t values)
+        data_bytes = serial.read(size=32)
+        if len(data_bytes) != 32:
+            raise RuntimeError(f"Incomplete data received: {len(data_bytes)} bytes instead of 32")
+        
+        # Check for end marker 'E'
+        end_marker = serial.read(1)
+        if end_marker != b'E':
+            print(f"[WARNING] End marker 'E' not found, got: {end_marker}")
+        
+        # Unpack data as 16 int16_t values
+        data = struct.unpack('16h', data_bytes)  # 'h' for int16_t
+        
+        # Validate data (check for reasonable ranges)
+        if not validate_sensor_data(data):
+            raise RuntimeError("Sensor data validation failed")
+        
+        if timestamp:
+            return (str(date.today()) + " " + datetime.now().strftime("%H:%M:%S"), data)
+        else:
+            return data
 
 
 def main():
@@ -570,51 +533,20 @@ def main():
     upload_thread.start()
     print("[INFO] Upload worker thread started")
     
-    # Find Arduino port using configuration
-    comport = None
-    port_search_terms = get_arduino_port_search()
+    # Find Arduino port using the old working method
+    PORT_NAME = "USB-SERIAL CH340"  # The correct port descriptor from the old code
     
-    # List all available ports for debugging
-    print("[INFO] Available COM ports:")
-    for port in list_ports.comports():
-        print(f"  - {port.device}: {port.description}")
+    print("[INFO] Looking for Arduino...")
+    comport = find_port(PORT_NAME)
     
-    # Try to find Arduino using search terms
-    for port in list_ports.comports():
-        for term in port_search_terms:
-            if term in port.description or term in port.device:
-                comport = port
-                break
-        if comport:
-            break
-    
-    # If not found, try common Arduino port descriptions
-    if not comport:
-        print("[INFO] Trying common Arduino port descriptions...")
-        common_terms = ["USB-SERIAL CH340", "Arduino", "CH340", "USB Serial Device"]
+    if comport is None:
+        print(f"[ERROR] Arduino not found! Searched for: {PORT_NAME}")
+        print("[INFO] Available COM ports:")
         for port in list_ports.comports():
-            for term in common_terms:
-                if term in port.description:
-                    comport = port
-                    print(f"[INFO] Found Arduino using common term '{term}' on {port.device}")
-                    break
-            if comport:
-                break
-    
-    if not comport:
-        print("[ERROR] Arduino not found!")
-        print(f"[INFO] Searched for: {port_search_terms}")
-        print("[INFO] Also tried common terms: USB-SERIAL CH340, Arduino, CH340, USB Serial Device")
+            print(f"  - {port.device}: {port.description}")
         return
     
     print(f"[INFO] Found Arduino on {comport.device}: {comport.description}")
-    
-    # Check if Arduino IDE might be running
-    if check_arduino_ide_running():
-        print("[INFO] Waiting 5 seconds for Arduino IDE to close...")
-        time.sleep(5)
-    
-    # No port clearing or reset needed - just connect directly
     
     # Main data processing loop
     consecutive_failures = 0
@@ -623,7 +555,7 @@ def main():
     while True:
         try:
             # Read data from serial (this is the only blocking operation)
-            data_table = readline(comport.device, timestamp=False)
+            data_table = readline(PORT_NAME, timestamp=False)
             print("[INFO] Measurement completed!")
             
             # Reset failure counter on success
