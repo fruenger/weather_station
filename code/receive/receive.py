@@ -82,6 +82,27 @@ def reset_arduino_connection(port_device):
             print(f"[WARNING] Could not reset Arduino connection: {e}")
 
 
+def wait_for_arduino_data(serial, timeout=15):
+    """Wait for Arduino to start sending data.
+    
+    Args:
+        serial: Serial connection object
+        timeout (int): Maximum time to wait in seconds
+        
+    Returns:
+        bool: True if data is available, False if timeout
+    """
+    start_time = time.time()
+    while (time.time() - start_time) < timeout:
+        if serial.in_waiting > 0:
+            print(f"[INFO] Data available ({serial.in_waiting} bytes)")
+            return True
+        time.sleep(0.5)
+    
+    print(f"[WARNING] No data available after {timeout} seconds")
+    return False
+
+
 def try_connect_with_different_settings(port_device):
     """Try to connect with different serial settings to find working configuration.
     
@@ -94,17 +115,18 @@ def try_connect_with_different_settings(port_device):
     # Method 1: Simple connection without any special settings
     try:
         print(f"[INFO] Trying simple connection on {port_device}")
-        serial = Serial(port_device, baudrate=9600, timeout=2)
+        serial = Serial(port_device, baudrate=9600, timeout=5, write_timeout=5)
         print(f"[SUCCESS] Connected with simple settings")
         return serial
     except Exception as e:
         print(f"[WARNING] Failed with simple settings: {e}")
         time.sleep(1)
     
-    # Method 2: Try with longer timeout
+    # Method 2: Try with longer timeout and different settings
     try:
         print(f"[INFO] Trying with longer timeout on {port_device}")
-        serial = Serial(port_device, baudrate=9600, timeout=5)
+        serial = Serial(port_device, baudrate=9600, timeout=10, write_timeout=10, 
+                       bytesize=8, parity='N', stopbits=1, exclusive=False)
         print(f"[SUCCESS] Connected with longer timeout")
         return serial
     except Exception as e:
@@ -113,11 +135,12 @@ def try_connect_with_different_settings(port_device):
     
     # Method 3: Try different baud rates
     baud_rates = [9600, 115200, 57600, 38400, 19200]
+    baud_rates = [9600, 115200, 57600, 38400, 19200]
     
     for baud_rate in baud_rates:
         try:
             print(f"[INFO] Trying baud rate {baud_rate} on {port_device}")
-            serial = Serial(port_device, baudrate=baud_rate, timeout=2)
+            serial = Serial(port_device, baudrate=baud_rate, timeout=5, write_timeout=5)
             print(f"[SUCCESS] Connected with baud rate {baud_rate}")
             return serial
         except Exception as e:
@@ -445,7 +468,7 @@ def readline(port_device, timestamp=True, max_retries=5):
             # Windows-specific: Add longer delay and reset settings
             if attempt > 0:
                 print(f"[INFO] Retry attempt {attempt + 1}/{max_retries}")
-                time.sleep(5)  # Wait longer between retries on Windows
+                time.sleep(3)  # Reduced wait time between retries
                 
                 # Try to reset Arduino connection on first retry
                 if attempt == 1:
@@ -460,12 +483,23 @@ def readline(port_device, timestamp=True, max_retries=5):
                 raise RuntimeError("Could not establish connection with any settings")
                 
             try:
+                # Clear any existing data in the buffer
+                serial.reset_input_buffer()
+                serial.reset_output_buffer()
+                
+                # Wait for Arduino to start sending data
+                if not wait_for_arduino_data(serial, timeout=15):
+                    raise RuntimeError("Arduino not sending data")
+                
                 # Wait for data marker 'D' with timeout
                 start_time = time.time()
-                while (time.time() - start_time) < 5:  # 5 second timeout
+                while (time.time() - start_time) < 10:  # Increased timeout to 10 seconds
                     marker = serial.read(1)
                     if marker == b'D':
                         break
+                    elif marker == b'':  # No data available
+                        time.sleep(0.1)  # Short wait before trying again
+                        continue
                 else:
                     raise RuntimeError("Timeout waiting for data marker 'D'")
                 
@@ -498,7 +532,7 @@ def readline(port_device, timestamp=True, max_retries=5):
             print(f"[ERROR] Attempt {attempt + 1}/{max_retries} failed: {e}")
             if attempt == max_retries - 1:
                 raise RuntimeError(f"Failed to read data after {max_retries} attempts")
-            time.sleep(0.1)  # Short wait before retry
+            time.sleep(1)  # Longer wait before retry
 
 
 def main():
@@ -552,11 +586,17 @@ def main():
     reset_arduino_connection(comport.device)
     
     # Main data processing loop
+    consecutive_failures = 0
+    max_consecutive_failures = 3
+    
     while True:
         try:
             # Read data from serial (this is the only blocking operation)
             data_table = readline(comport.device, timestamp=False)
             print("[INFO] Measurement completed!")
+            
+            # Reset failure counter on success
+            consecutive_failures = 0
             
             # Convert scaled integer data to physical units
             physical_data = convert_scaled_data_to_physical(data_table)
@@ -610,8 +650,15 @@ def main():
                 save_failed_data(data, failed_data_file)
                 
         except Exception as e:
-            print(f"[ERROR] Critical error in main loop: {e}")
-            time.sleep(1)  # Short wait before retrying
+            consecutive_failures += 1
+            print(f"[ERROR] Critical error in main loop (failure {consecutive_failures}/{max_consecutive_failures}): {e}")
+            
+            if consecutive_failures >= max_consecutive_failures:
+                print(f"[ERROR] Too many consecutive failures ({consecutive_failures}), waiting longer before retry")
+                time.sleep(30)  # Wait 30 seconds before retrying
+                consecutive_failures = 0  # Reset counter
+            else:
+                time.sleep(5)  # Short wait before retrying
 
 
 if __name__ == "__main__":
