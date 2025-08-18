@@ -141,48 +141,22 @@ def try_read_data_directly(serial, timeout=5):
 
 
 def try_connect_with_different_settings(port_device):
-    """Try to connect with different serial settings to find working configuration.
+    """Connect with 9600 baud (the only reliable setting).
     
     Args:
         port_device (str): COM port device (e.g., 'COM12')
         
     Returns:
-        Serial object or None if all attempts fail
+        Serial object or None if connection fails
     """
-    # Method 1: Try 9600 baud first (since it works reliably)
     try:
-        print(f"[INFO] Trying 9600 baud connection on {port_device}")
+        print(f"[INFO] Connecting with 9600 baud on {port_device}")
         serial = Serial(port_device, baudrate=9600, timeout=5, write_timeout=5)
         print(f"[SUCCESS] Connected with 9600 baud")
         return serial
     except Exception as e:
-        print(f"[WARNING] Failed with 9600 baud: {e}")
-        time.sleep(1)
-    
-    # Method 2: Try 115200 baud as fallback
-    try:
-        print(f"[INFO] Trying 115200 baud connection on {port_device}")
-        serial = Serial(port_device, baudrate=115200, timeout=5, write_timeout=5)
-        print(f"[SUCCESS] Connected with 115200 baud")
-        return serial
-    except Exception as e:
-        print(f"[WARNING] Failed with 115200 baud: {e}")
-        time.sleep(1)
-    
-    # Method 3: Try other baud rates as last resort
-    baud_rates = [57600, 38400, 19200]
-    
-    for baud_rate in baud_rates:
-        try:
-            print(f"[INFO] Trying baud rate {baud_rate} on {port_device}")
-            serial = Serial(port_device, baudrate=baud_rate, timeout=5, write_timeout=5)
-            print(f"[SUCCESS] Connected with baud rate {baud_rate}")
-            return serial
-        except Exception as e:
-            print(f"[WARNING] Failed with baud rate {baud_rate}: {e}")
-            time.sleep(1)
-    
-    return None
+        print(f"[ERROR] Failed to connect with 9600 baud: {e}")
+        return None
 
 
 def check_arduino_ide_running():
@@ -500,22 +474,15 @@ def readline(port_device, timestamp=True, max_retries=5):
     """
     for attempt in range(max_retries):
         try:
-            # Windows-specific: Add longer delay and reset settings
+            # Simple retry with delay
             if attempt > 0:
                 print(f"[INFO] Retry attempt {attempt + 1}/{max_retries}")
-                time.sleep(3)  # Reduced wait time between retries
-                
-                # Try to reset Arduino connection on first retry
-                if attempt == 1:
-                    reset_arduino_connection(port_device)
-                
-                # Try to clear the port on Windows before retry
-                clear_windows_port(port_device)
+                time.sleep(3)  # Wait between retries
             
-            # Try to connect with different settings first
+            # Connect with 9600 baud
             serial = try_connect_with_different_settings(port_device)
             if serial is None:
-                raise RuntimeError("Could not establish connection with any settings")
+                raise RuntimeError("Could not establish connection")
                 
             try:
                 # Clear any existing data in the buffer
@@ -627,11 +594,7 @@ def main():
         print("[INFO] Waiting 5 seconds for Arduino IDE to close...")
         time.sleep(5)
     
-    # Clear port before starting (Windows-specific)
-    clear_windows_port(comport.device)
-    
-    # Try to reset Arduino connection at startup
-    reset_arduino_connection(comport.device)
+    # No port clearing or reset needed - just connect directly
     
     # Main data processing loop
     consecutive_failures = 0
