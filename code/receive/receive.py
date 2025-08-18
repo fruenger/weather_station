@@ -548,8 +548,9 @@ def readline(port_device, timestamp=True, max_retries=5):
                         time.sleep(0.1)  # Short wait before trying again
                         continue
                     else:
-                        # Debug: print what we're actually receiving
-                        print(f"[DEBUG] Received marker: {marker} (hex: {marker.hex()})")
+                        # Only print non-null markers for debugging
+                        if marker != b'\x00':
+                            print(f"[DEBUG] Received marker: {marker} (hex: {marker.hex()})")
                 
                 # If we didn't find 'D' marker, try to read data directly
                 if data_bytes is None:
