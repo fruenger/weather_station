@@ -141,7 +141,7 @@ def try_read_data_directly(serial, timeout=5):
 
 
 def try_connect_with_different_settings(port_device):
-    """Connect with 9600 baud (the only reliable setting).
+    """Connect with default baud rate (no explicit baudrate setting).
     
     Args:
         port_device (str): COM port device (e.g., 'COM12')
@@ -150,12 +150,12 @@ def try_connect_with_different_settings(port_device):
         Serial object or None if connection fails
     """
     try:
-        print(f"[INFO] Connecting with 9600 baud on {port_device}")
-        serial = Serial(port_device, baudrate=9600, timeout=5, write_timeout=5)
-        print(f"[SUCCESS] Connected with 9600 baud")
+        print(f"[INFO] Connecting with default settings on {port_device}")
+        serial = Serial(port_device, timeout=5, write_timeout=5)
+        print(f"[SUCCESS] Connected with default settings")
         return serial
     except Exception as e:
-        print(f"[ERROR] Failed to connect with 9600 baud: {e}")
+        print(f"[ERROR] Failed to connect with default settings: {e}")
         return None
 
 
