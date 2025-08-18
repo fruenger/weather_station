@@ -1,0 +1,257 @@
+================================================================================
+                    WEATHER STATION PIN CONNECTIONS
+                    Version 2.0 - I2C Multiplexer + CCS811
+================================================================================
+
+ARDUINO UNO PIN ASSIGNMENTS
+================================================================================
+
+POWER PINS:
+-----------
+5V    -> Multiple sensors (BME280, MLX90614, TSL2591, CCS811, Anemometer, nRF24L01)
+3.3V  -> Multiple sensors (BME280, MLX90614, TSL2591, CCS811, Anemometer, nRF24L01)
+GND   -> Multiple sensors (BME280, MLX90614, TSL2591, CCS811, Anemometer, nRF24L01)
+
+I2C BUS (SDA/SCL):
+-------------------
+A4 (SDA) -> TCA9548A SDA (I2C Multiplexer)
+A5 (SCL) -> TCA9548A SCL (I2C Multiplexer)
+
+DIGITAL PINS:
+-------------
+D2  -> Rain Reed Sensor (Rain Amount Counter)
+D3  -> Anemometer Signal (Wind Speed - Hall Sensor)
+D4  -> Reset Pin (Watchdog/Manual Reset)
+D5  -> Rain Drop Sensor Digital Pin
+D8  -> nRF24L01 CSN (Chip Select)
+D9  -> nRF24L01 CE (Chip Enable)
+D10 -> nRF24L01 MOSI (Master Out Slave In)
+D11 -> nRF24L01 MISO (Master In Slave Out)
+D12 -> nRF24L01 SCK (Serial Clock)
+D13 -> Built-in LED (Status Indicator)
+
+ANALOG PINS:
+------------
+A1  -> Rain Drop Sensor Analog Pin
+
+================================================================================
+I2C MULTIPLEXER CONFIGURATION (TCA9548A)
+================================================================================
+
+TCA9548A (I2C Multiplexer):
+----------------------------
+Address: 0x70
+Function: Routes I2C communication to multiple sensors
+
+Channel Assignments:
+- Channel 0 (0x01) -> CCS811 (Air Quality Sensor)
+- Channel 1 (0x02) -> BME280 (Temperature, Humidity, Pressure)
+- Channel 3 (0x08) -> MLX90614 (Infrared Temperature)
+- Channel 4 (0x10) -> TSL2591 (Light Sensor)
+
+Connections:
+- VCC -> 3.3V
+- GND -> GND
+- SDA -> A4 (SDA)
+- SCL -> A5 (SCL)
+
+================================================================================
+SENSOR DETAILED CONNECTIONS
+================================================================================
+
+1. BME280 (Temperature, Humidity, Pressure Sensor)
+================================================================================
+   Pin    -> TCA9548A Channel 1
+   -------  --------------------
+   VCC     -> 3.3V
+   GND     -> GND
+   SDA     -> TCA9548A SDA (Channel 1)
+   SCL     -> TCA9548A SCL (Channel 1)
+   
+   I2C Address: 0x76
+   Function: Temperature, Humidity, Pressure measurement
+
+2. MLX90614 (Infrared Temperature Sensor)
+================================================================================
+   Pin    -> TCA9548A Channel 3
+   -------  --------------------
+   VCC     -> 3.3V
+   GND     -> GND
+   SDA     -> TCA9548A SDA (Channel 3)
+   SCL     -> TCA9548A SCL (Channel 3)
+   
+   I2C Address: 0x5A
+   Function: Infrared temperature measurement (sky and box temperature)
+
+3. TSL2591 (Light Sensor)
+================================================================================
+   Pin    -> TCA9548A Channel 4
+   -------  --------------------
+   VCC     -> 3.3V
+   GND     -> GND
+   SDA     -> TCA9548A SDA (Channel 4)
+   SCL     -> TCA9548A SCL (Channel 4)
+   
+   I2C Address: 0x29
+   Function: Light intensity measurement
+
+4. CCS811 (Air Quality Sensor)
+================================================================================
+   Pin    -> TCA9548A Channel 0
+   -------  --------------------
+   VCC     -> 3.3V
+   GND     -> GND
+   SDA     -> TCA9548A SDA (Channel 0)
+   SCL     -> TCA9548A SCL (Channel 0)
+   WAKE    -> GND
+   
+   I2C Address: 0x5B
+   Function: CO2 and TVOC measurement
+   Features: 
+   - CO2 measurement (400-5000 ppm)
+   - TVOC measurement (0-1000 ppb)
+   - Baseline calibration
+   - Environmental compensation
+
+5. Anemometer (Wind Speed Sensor)
+================================================================================
+   Pin    -> Arduino Pin
+   -------  -------------
+   VCC     -> 5V
+   GND     -> GND
+   SIG     -> D3 (Interrupt Pin)
+   
+   Function: Wind speed measurement via Hall sensor
+   Note: Requires interrupt pin for accurate counting
+
+6. Rain Reed Sensor (Rain Amount)
+================================================================================
+   Pin    -> Arduino Pin
+   -------  -------------
+   One Pin -> D2
+   Other   -> GND
+   
+   Function: Counts rain tips for rain amount measurement
+   Note: Simple reed switch that closes when rain tip occurs
+
+7. Rain Drop Sensor (Rain Detection)
+================================================================================
+   Pin    -> Arduino Pin
+   -------  -------------
+   Analog  -> A1 (Analog reading for debugging)
+   Digital -> D5 (Binary rain detection)
+   VCC     -> 5V
+   GND     -> GND
+   
+   Function: Binary rain detection (rain/no rain)
+   Note: Provides both analog and digital outputs
+
+8. nRF24L01 (Radio Module)
+================================================================================
+   Pin    -> Arduino Pin
+   -------  -------------
+   VCC     -> 3.3V
+   GND     -> GND
+   CE      -> D9 (Chip Enable)
+   CSN     -> D8 (Chip Select)
+   MOSI    -> D11 (Master Out Slave In)
+   MISO    -> D12 (Master In Slave Out)
+   SCK     -> D13 (Serial Clock)
+   
+   Function: Wireless data transmission
+   Note: Uses SPI communication protocol
+
+================================================================================
+IMPORTANT NOTES
+================================================================================
+
+POWER SUPPLY:
+- Use external 3.3V supply for stable operation
+- All I2C sensors require 3.3V
+- Anemometer and Rain Drop sensor can use 5V
+- nRF24L01 requires 3.3V
+
+I2C MULTIPLEXER:
+- TCA9548A routes I2C communication to 8 channels
+- Only one channel active at a time
+- Channel switching requires small delay (1ms)
+- All sensors share same I2C bus through multiplexer
+- Pull-up resistors required on SDA and SCL lines
+
+I2C ADDRESSES:
+- TCA9548A Multiplexer: 0x70
+- BME280: 0x76 (Channel 1)
+- MLX90614: 0x5A (Channel 3)
+- TSL2591: 0x29 (Channel 4)
+- CCS811: 0x5B (Channel 0)
+
+INTERRUPTS:
+- D3 is used for anemometer interrupt
+- This pin must be configured as interrupt for accurate wind speed measurement
+
+RESET FUNCTIONALITY:
+- D4 is used for watchdog reset and manual reset capability
+- Auto-reset occurs every hour (3600000ms) to prevent system lockups
+- Manual reset can be triggered by external circuit if needed
+
+SPI BUS:
+- nRF24L01 uses SPI communication (D8-D13)
+- These pins are dedicated to SPI communication
+
+AIR QUALITY SENSOR:
+- CCS811 provides CO2 and TVOC measurements
+- Requires 20-minute warm-up period
+- Baseline calibration improves accuracy
+- Environmental compensation for temperature and humidity
+
+RAIN SENSORS:
+- Reed sensor counts tips for rain amount
+- Rain drop sensor provides binary detection
+- Both sensors can be used simultaneously
+
+WIRING TIPS:
+- Use color-coded wires for easier identification
+- Keep wires as short as possible to reduce interference
+- Use breadboard for testing before final assembly
+- Double-check all connections before powering on
+- I2C multiplexer simplifies wiring and allows future expansion
+
+================================================================================
+PIN SUMMARY TABLE
+================================================================================
+
+Arduino Pin | Connected To          | Function
+------------|----------------------|------------------
+5V          | Multiple sensors     | Power supply
+3.3V        | Multiple sensors     | Power supply
+GND         | Multiple sensors     | Ground
+A1          | Rain Drop Sensor     | Analog rain detection
+A4          | TCA9548A (SDA)      | I2C data line
+A5          | TCA9548A (SCL)      | I2C clock line
+D2          | Rain Reed Sensor     | Rain amount counter
+D3          | Anemometer           | Wind speed (interrupt)
+D4          | Reset Pin            | Watchdog/Manual reset
+D5          | Rain Drop Sensor     | Digital rain detection
+D8          | nRF24L01 (CSN)      | SPI chip select
+D9          | nRF24L01 (CE)       | SPI chip enable
+D10         | nRF24L01 (MOSI)     | SPI data out
+D11         | nRF24L01 (MISO)     | SPI data in
+D12         | nRF24L01 (SCK)      | SPI clock
+D13         | Built-in LED         | Status indicator
+
+================================================================================
+I2C MULTIPLEXER CHANNEL ASSIGNMENTS
+================================================================================
+
+TCA9548A Channel | Sensor        | I2C Address | Function
+------------------|---------------|-------------|------------------
+Channel 0 (0x01)  | CCS811       | 0x5B        | Air Quality (CO2, TVOC)
+Channel 1 (0x02)  | BME280       | 0x76        | Temperature, Humidity, Pressure
+Channel 2 (0x04)  | Reserved     | -           | Future expansion
+Channel 3 (0x08)  | MLX90614     | 0x5A        | Infrared Temperature
+Channel 4 (0x10)  | TSL2591      | 0x29        | Light Sensor
+Channel 5 (0x20)  | Reserved     | -           | Future expansion
+Channel 6 (0x40)  | Reserved     | -           | Future expansion
+Channel 7 (0x80)  | Reserved     | -           | Future expansion
+
+================================================================================ 

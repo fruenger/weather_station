@@ -1,6 +1,5 @@
 //  Decleration and initialization of the input pin
-int analog_input_pin = A0;
-int digital_input_pin = 3;
+int digital_input_pin = 2;
 
 //  1.25 ml per dipper change, 94.175 ml per m^2 (=1.25*75.34), = 0.094175mm/m^2
 //  diameter of raingauge is about 130mm, r = 65mm, surface = pi*r^2 = 132.73 cm^2
@@ -19,7 +18,6 @@ unsigned long lastChanged = 0;
 int totalCount   = 0;
 
 void setup() {
-  // pinMode(analog_input_pin, INPUT);
   pinMode(digital_input_pin, INPUT);
 
   //  Serial output with 9600 bps
@@ -34,6 +32,8 @@ void loop() {
 
   //  If it is the first startup,  it should not send any data
   int currentState = digitalRead(digital_input_pin);
+  Serial.print(F("Rain reed: "));
+  Serial.println(currentState);
   if (firstLoop) {
     lastState = currentState;
     firstLoop = false;  // Sets that it has now run the startup.
@@ -63,22 +63,6 @@ void loop() {
       Serial.print(totalCount); Serial.print(" - ");  Serial.println(mmPerSquareMeter);
     }
   }
-
-  // //  Cuttent value will be read and the analog signal will
-  // //  be converted to the voltage
-  // analog = analogRead (analog_input_pin) * (5.0 / 1023.0);
-  // digital = digitalRead (digital_input_pin);
-
-  // //  Output results
-  // Serial.print ("Analog voltage value:"); Serial.print (analog, 4); Serial.print ("V, ");
-  // Serial.print ("Extreme value:");
-
-  // if (digital==1) {
-  //   Serial.println (" reached");
-  // } else {
-  //   Serial.println (" not reached yet");
-  // }
-  // Serial.println ("----------------------------------------------------");
 
   //  Small delay to avoid false readings.
   delay(150);
