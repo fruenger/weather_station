@@ -34,6 +34,25 @@ import threading
 import queue
 from astropy.time import Time
 from config import get_server_credentials, get_arduino_port_search, get_data_config
+import os
+import platform
+
+
+def clear_windows_port(port_device):
+    """Clear Windows COM port to resolve access issues.
+    
+    Args:
+        port_device (str): COM port device (e.g., 'COM12')
+    """
+    if platform.system() == 'Windows':
+        try:
+            # Try to open and immediately close the port to clear any stale handles
+            temp_serial = Serial(port_device, baudrate=9600, timeout=0.1)
+            temp_serial.close()
+            time.sleep(0.5)  # Give Windows time to release the port
+            print(f"[INFO] Cleared port {port_device}")
+        except Exception as e:
+            print(f"[WARNING] Could not clear port {port_device}: {e}")
 
 
 def validate_sensor_data(data):
@@ -293,7 +312,14 @@ def readline(port_device, timestamp=True, max_retries=3):
     """
     for attempt in range(max_retries):
         try:
-            with Serial(port_device, baudrate=9600, timeout=1) as serial:  # Short timeout for non-blocking
+            # Windows-specific: Add longer delay and reset settings
+            if attempt > 0:
+                time.sleep(2)  # Wait longer between retries on Windows
+                # Try to clear the port on Windows before retry
+                clear_windows_port(port_device)
+                
+            with Serial(port_device, baudrate=9600, timeout=1, 
+                       write_timeout=1, exclusive=True) as serial:  # Add exclusive=True for Windows
                 
                 # Wait for data marker 'D' with timeout
                 start_time = time.time()
@@ -371,6 +397,9 @@ def main():
         return
     
     print(f"[INFO] Found Arduino on {comport.device}")
+    
+    # Clear port before starting (Windows-specific)
+    clear_windows_port(comport.device)
     
     # Main data processing loop
     while True:
