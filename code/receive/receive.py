@@ -47,7 +47,7 @@ def clear_windows_port(port_device):
     if platform.system() == 'Windows':
         try:
             # Try to open and immediately close the port to clear any stale handles
-            temp_serial = Serial(port_device, baudrate=9600, timeout=0.1)
+            temp_serial = Serial(port_device, baudrate=115200, timeout=0.1)
             temp_serial.close()
             time.sleep(1.0)  # Give Windows more time to release the port
             print(f"[INFO] Cleared port {port_device}")
@@ -66,7 +66,7 @@ def reset_arduino_connection(port_device):
             print(f"[INFO] Attempting to reset Arduino connection on {port_device}")
             
             # Try to open port with DTR control
-            temp_serial = Serial(port_device, baudrate=9600, timeout=0.1)
+            temp_serial = Serial(port_device, baudrate=115200, timeout=0.1)
             
             # Toggle DTR to reset Arduino (if supported)
             temp_serial.setDTR(False)
@@ -103,6 +103,43 @@ def wait_for_arduino_data(serial, timeout=15):
     return False
 
 
+def try_read_data_directly(serial, timeout=5):
+    """Try to read data directly without waiting for markers.
+    
+    Args:
+        serial: Serial connection object
+        timeout (int): Maximum time to wait in seconds
+        
+    Returns:
+        bytes: Data bytes if successful, None if failed
+    """
+    try:
+        # Wait for enough data to be available
+        start_time = time.time()
+        while (time.time() - start_time) < timeout:
+            if serial.in_waiting >= 32:
+                break
+            time.sleep(0.1)
+        
+        if serial.in_waiting < 32:
+            print(f"[WARNING] Not enough data available: {serial.in_waiting} bytes")
+            return None
+        
+        # Read exactly 32 bytes
+        data_bytes = serial.read(32)
+        print(f"[DEBUG] Read {len(data_bytes)} bytes: {data_bytes.hex()}")
+        
+        if len(data_bytes) == 32:
+            return data_bytes
+        else:
+            print(f"[WARNING] Incomplete read: {len(data_bytes)} bytes")
+            return None
+            
+    except Exception as e:
+        print(f"[ERROR] Error reading data directly: {e}")
+        return None
+
+
 def try_connect_with_different_settings(port_device):
     """Try to connect with different serial settings to find working configuration.
     
@@ -112,30 +149,28 @@ def try_connect_with_different_settings(port_device):
     Returns:
         Serial object or None if all attempts fail
     """
-    # Method 1: Simple connection without any special settings
+    # Method 1: Try 115200 baud first (since it works reliably)
     try:
-        print(f"[INFO] Trying simple connection on {port_device}")
+        print(f"[INFO] Trying 115200 baud connection on {port_device}")
+        serial = Serial(port_device, baudrate=115200, timeout=5, write_timeout=5)
+        print(f"[SUCCESS] Connected with 115200 baud")
+        return serial
+    except Exception as e:
+        print(f"[WARNING] Failed with 115200 baud: {e}")
+        time.sleep(1)
+    
+    # Method 2: Try 9600 baud as fallback
+    try:
+        print(f"[INFO] Trying 9600 baud connection on {port_device}")
         serial = Serial(port_device, baudrate=9600, timeout=5, write_timeout=5)
-        print(f"[SUCCESS] Connected with simple settings")
+        print(f"[SUCCESS] Connected with 9600 baud")
         return serial
     except Exception as e:
-        print(f"[WARNING] Failed with simple settings: {e}")
+        print(f"[WARNING] Failed with 9600 baud: {e}")
         time.sleep(1)
     
-    # Method 2: Try with longer timeout and different settings
-    try:
-        print(f"[INFO] Trying with longer timeout on {port_device}")
-        serial = Serial(port_device, baudrate=9600, timeout=10, write_timeout=10, 
-                       bytesize=8, parity='N', stopbits=1, exclusive=False)
-        print(f"[SUCCESS] Connected with longer timeout")
-        return serial
-    except Exception as e:
-        print(f"[WARNING] Failed with longer timeout: {e}")
-        time.sleep(1)
-    
-    # Method 3: Try different baud rates
-    baud_rates = [9600, 115200, 57600, 38400, 19200]
-    baud_rates = [9600, 115200, 57600, 38400, 19200]
+    # Method 3: Try other baud rates as last resort
+    baud_rates = [57600, 38400, 19200]
     
     for baud_rate in baud_rates:
         try:
@@ -491,27 +526,37 @@ def readline(port_device, timestamp=True, max_retries=5):
                 if not wait_for_arduino_data(serial, timeout=15):
                     raise RuntimeError("Arduino not sending data")
                 
-                # Wait for data marker 'D' with timeout
+                # Try to find data marker 'D' or read data directly
+                data_bytes = None
                 start_time = time.time()
                 while (time.time() - start_time) < 10:  # Increased timeout to 10 seconds
                     marker = serial.read(1)
                     if marker == b'D':
+                        # Found marker, read data normally
+                        data_bytes = serial.read(32)
+                        if len(data_bytes) != 32:
+                            print(f"[WARNING] Incomplete data received: {len(data_bytes)} bytes instead of 32")
+                            print(f"[DEBUG] Data received: {data_bytes.hex()}")
+                            raise RuntimeError(f"Incomplete data received: {len(data_bytes)} bytes instead of 32")
+                        
+                        # Check for end marker (optional)
+                        end_marker = serial.read(1)
+                        if end_marker != b'E':
+                            print(f"[WARNING] Invalid or missing end marker: {end_marker} (hex: {end_marker.hex()})")
                         break
                     elif marker == b'':  # No data available
                         time.sleep(0.1)  # Short wait before trying again
                         continue
-                else:
-                    raise RuntimeError("Timeout waiting for data marker 'D'")
+                    else:
+                        # Debug: print what we're actually receiving
+                        print(f"[DEBUG] Received marker: {marker} (hex: {marker.hex()})")
                 
-                # Read data with validation (32 bytes for 16 int16_t values)
-                data_bytes = serial.read(32)
-                if len(data_bytes) != 32:
-                    raise RuntimeError(f"Incomplete data received: {len(data_bytes)} bytes instead of 32")
-                
-                # Check for end marker
-                end_marker = serial.read(1)
-                if end_marker != b'E':
-                    raise RuntimeError(f"Invalid end marker: {end_marker}")
+                # If we didn't find 'D' marker, try to read data directly
+                if data_bytes is None:
+                    print("[WARNING] Data marker 'D' not found, attempting to read data directly")
+                    data_bytes = try_read_data_directly(serial, timeout=5)
+                    if data_bytes is None:
+                        raise RuntimeError("Could not read data directly")
                 
                 # Unpack data as 16 int16_t values
                 data = struct.unpack('16h', data_bytes)  # 'h' for int16_t
