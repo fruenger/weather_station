@@ -49,10 +49,140 @@ def clear_windows_port(port_device):
             # Try to open and immediately close the port to clear any stale handles
             temp_serial = Serial(port_device, baudrate=9600, timeout=0.1)
             temp_serial.close()
-            time.sleep(0.5)  # Give Windows time to release the port
+            time.sleep(1.0)  # Give Windows more time to release the port
             print(f"[INFO] Cleared port {port_device}")
         except Exception as e:
             print(f"[WARNING] Could not clear port {port_device}: {e}")
+
+
+def reset_arduino_connection(port_device):
+    """Try to reset Arduino connection by cycling the port.
+    
+    Args:
+        port_device (str): COM port device (e.g., 'COM12')
+    """
+    if platform.system() == 'Windows':
+        try:
+            print(f"[INFO] Attempting to reset Arduino connection on {port_device}")
+            
+            # Try to open port with DTR control
+            temp_serial = Serial(port_device, baudrate=9600, timeout=0.1)
+            
+            # Toggle DTR to reset Arduino (if supported)
+            temp_serial.setDTR(False)
+            time.sleep(0.1)
+            temp_serial.setDTR(True)
+            time.sleep(0.1)
+            
+            temp_serial.close()
+            time.sleep(2.0)  # Give Arduino time to reset
+            print(f"[INFO] Reset Arduino connection on {port_device}")
+            
+        except Exception as e:
+            print(f"[WARNING] Could not reset Arduino connection: {e}")
+
+
+def try_connect_with_different_settings(port_device):
+    """Try to connect with different serial settings to find working configuration.
+    
+    Args:
+        port_device (str): COM port device (e.g., 'COM12')
+        
+    Returns:
+        Serial object or None if all attempts fail
+    """
+    # Method 1: Simple connection without any special settings
+    try:
+        print(f"[INFO] Trying simple connection on {port_device}")
+        serial = Serial(port_device, baudrate=9600, timeout=2)
+        print(f"[SUCCESS] Connected with simple settings")
+        return serial
+    except Exception as e:
+        print(f"[WARNING] Failed with simple settings: {e}")
+        time.sleep(1)
+    
+    # Method 2: Try with longer timeout
+    try:
+        print(f"[INFO] Trying with longer timeout on {port_device}")
+        serial = Serial(port_device, baudrate=9600, timeout=5)
+        print(f"[SUCCESS] Connected with longer timeout")
+        return serial
+    except Exception as e:
+        print(f"[WARNING] Failed with longer timeout: {e}")
+        time.sleep(1)
+    
+    # Method 3: Try different baud rates
+    baud_rates = [9600, 115200, 57600, 38400, 19200]
+    
+    for baud_rate in baud_rates:
+        try:
+            print(f"[INFO] Trying baud rate {baud_rate} on {port_device}")
+            serial = Serial(port_device, baudrate=baud_rate, timeout=2)
+            print(f"[SUCCESS] Connected with baud rate {baud_rate}")
+            return serial
+        except Exception as e:
+            print(f"[WARNING] Failed with baud rate {baud_rate}: {e}")
+            time.sleep(1)
+    
+    return None
+
+
+def check_arduino_ide_running():
+    """Check if Arduino IDE Serial Monitor might be running.
+    
+    Returns:
+        bool: True if Arduino IDE processes are detected
+    """
+    if platform.system() == 'Windows':
+        try:
+            import subprocess
+            
+            # Check for Arduino IDE processes
+            result = subprocess.run(['tasklist', '/FI', 'IMAGENAME eq java.exe'], 
+                                  capture_output=True, text=True, timeout=5)
+            
+            if result.returncode == 0 and 'java.exe' in result.stdout:
+                print("[WARNING] Java process detected - Arduino IDE might be running")
+                print("[INFO] Please close Arduino IDE Serial Monitor and try again")
+                return True
+                
+        except Exception as e:
+            print(f"[WARNING] Could not check for Arduino IDE: {e}")
+    
+    return False
+
+
+def reset_arduino_driver_windows(port_device):
+    """Try to reset Arduino driver under Windows using devcon.
+    
+    Args:
+        port_device (str): COM port device (e.g., 'COM12')
+    """
+    if platform.system() == 'Windows':
+        try:
+            # Try to disable and re-enable the USB device
+            import subprocess
+            
+            # Find the device ID for the Arduino
+            result = subprocess.run(['wmic', 'path', 'win32_pnpentity', 'where', 
+                                   f'Caption like "%{port_device}%"', 'get', 'DeviceID'], 
+                                  capture_output=True, text=True, timeout=10)
+            
+            if result.returncode == 0 and result.stdout.strip():
+                device_id = result.stdout.strip().split('\n')[1].strip()
+                print(f"[INFO] Found device ID: {device_id}")
+                
+                # Try to disable and re-enable the device
+                subprocess.run(['pnputil', '/disable-device', device_id], 
+                             capture_output=True, timeout=10)
+                time.sleep(2)
+                subprocess.run(['pnputil', '/enable-device', device_id], 
+                             capture_output=True, timeout=10)
+                time.sleep(3)
+                print(f"[INFO] Reset device {device_id}")
+                
+        except Exception as e:
+            print(f"[WARNING] Could not reset Arduino driver: {e}")
 
 
 def validate_sensor_data(data):
@@ -296,7 +426,7 @@ def upload_worker(data_queue, failed_data_file, username, password, server_url):
             time.sleep(1)
 
 
-def readline(port_device, timestamp=True, max_retries=3):
+def readline(port_device, timestamp=True, max_retries=5):
     """Read a line of data from serial port with retry mechanism.
     
     Args:
@@ -314,13 +444,22 @@ def readline(port_device, timestamp=True, max_retries=3):
         try:
             # Windows-specific: Add longer delay and reset settings
             if attempt > 0:
-                time.sleep(2)  # Wait longer between retries on Windows
+                print(f"[INFO] Retry attempt {attempt + 1}/{max_retries}")
+                time.sleep(5)  # Wait longer between retries on Windows
+                
+                # Try to reset Arduino connection on first retry
+                if attempt == 1:
+                    reset_arduino_connection(port_device)
+                
                 # Try to clear the port on Windows before retry
                 clear_windows_port(port_device)
+            
+            # Try to connect with different settings first
+            serial = try_connect_with_different_settings(port_device)
+            if serial is None:
+                raise RuntimeError("Could not establish connection with any settings")
                 
-            with Serial(port_device, baudrate=9600, timeout=1, 
-                       write_timeout=1, exclusive=True) as serial:  # Add exclusive=True for Windows
-                
+            try:
                 # Wait for data marker 'D' with timeout
                 start_time = time.time()
                 while (time.time() - start_time) < 5:  # 5 second timeout
@@ -351,6 +490,9 @@ def readline(port_device, timestamp=True, max_retries=3):
                     return (str(date.today()) + " " + datetime.now().strftime("%H:%M:%S"), data)
                 else:
                     return data
+            finally:
+                # Always close the serial connection
+                serial.close()
                     
         except Exception as e:
             print(f"[ERROR] Attempt {attempt + 1}/{max_retries} failed: {e}")
@@ -398,8 +540,16 @@ def main():
     
     print(f"[INFO] Found Arduino on {comport.device}")
     
+    # Check if Arduino IDE might be running
+    if check_arduino_ide_running():
+        print("[INFO] Waiting 5 seconds for Arduino IDE to close...")
+        time.sleep(5)
+    
     # Clear port before starting (Windows-specific)
     clear_windows_port(comport.device)
+    
+    # Try to reset Arduino connection at startup
+    reset_arduino_connection(comport.device)
     
     # Main data processing loop
     while True:
