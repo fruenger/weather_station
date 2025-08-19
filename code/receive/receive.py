@@ -393,8 +393,8 @@ def upload_data_to_server(data, username, password, server_url):
         # Send POST request to server with authentication
         response = requests.post(server_url, auth=(username, password), data=upload_data, timeout=10)
         
-        if response.status_code == 200:
-            print(f"[SUCCESS] Data uploaded successfully (Packet {data['packet_number']})")
+        if response.status_code in [200, 201]:  # Both 200 (OK) and 201 (Created) are success
+            print(f"[SUCCESS] Data uploaded successfully (Packet {data['packet_number']}) - Status: {response.status_code}")
             return True
         else:
             print(f"[ERROR] Server returned status code {response.status_code}")
