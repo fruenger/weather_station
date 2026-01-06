@@ -242,7 +242,7 @@ def validate_sensor_data(data):
     box_temp = box_temp_scaled / 100.0  # Convert back from scaled integer
     
     # Check for reasonable ranges
-    if not (-327 <= temp_scaled <= 8000):  # Temperature range (-327°C to +80°C scaled)
+    if not (-32700 <= temp_scaled <= 8000):  # Temperature range (-327°C to +80°C scaled)
         print(f"[WARNING] Temperature out of range: {temperature}°C (scaled: {temp_scaled})")
         return False
     
@@ -267,11 +267,11 @@ def validate_sensor_data(data):
         return False
     
     # MLX90614 validation
-    if not (-327 <= sky_temp_scaled <= 8000):  # Sky temperature range (-327°C to +80°C scaled)
+    if not (-32700 <= sky_temp_scaled <= 8000):  # Sky temperature range (-327°C to +80°C scaled)
         print(f"[WARNING] Sky temperature out of range: {sky_temp}°C (scaled: {sky_temp_scaled})")
         return False
     
-    if not (-327 <= box_temp_scaled <= 8000):  # Box temperature range (-327°C to +80°C scaled)
+    if not (-32700 <= box_temp_scaled <= 8000):  # Box temperature range (-327°C to +80°C scaled)
         print(f"[WARNING] Box temperature out of range: {box_temp}°C (scaled: {box_temp_scaled})")
         return False
     
