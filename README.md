@@ -170,11 +170,13 @@ The Python script performs the following operations:
 4. **Upload**: Sends data to remote server asynchronously
 5. **Backup**: Stores failed uploads locally for retry
 
-### Calculated Values
+### Calculated Values & Server Upload
 
-- **Rainfall**: Converts tipping bucket counts to mm/m²
-- **Wind Speed**: Converts anemometer revolutions to m/s
-- **Air Quality**: Direct CO2 and TVOC measurements
+- **Rain (`rain` field)**: `rain_tips × 1.25` → depth in the **collector** (mm per tip). The website converts collector mm → **mm/m²** when plotting (`× 0.07534`, gauge Ø 130 mm).
+- **Wind (`wind_speed` field)**: anemometer **revolutions** per sample (not m/s). The website converts to m/s for display (`× 0.14`).
+- **Air quality**: CO2 and TVOC (ppb); TVOC must be ≤ 10000 to match the API.
+
+Upload endpoint: `POST …/weather_api/datasets/` with HTTP Basic Auth (see `weather_station_config.json`). Production URLs must include the `/weather_station/` prefix. On upload failure the server response body is logged.
 
 ## Troubleshooting
 

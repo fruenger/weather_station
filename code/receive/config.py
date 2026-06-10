@@ -111,8 +111,11 @@ def get_server_credentials():
     server_config = config.get("server", {})
     username = server_config.get("username", "data_upload_user")
     password = server_config.get("password", "")
-    url = server_config.get("url", "https://polaris.astro.physik.uni-potsdam.de/weather_station/weather_api/datasets/")
-    
+    url = server_config.get(
+        "url",
+        "https://polaris.astro.physik.uni-potsdam.de/weather_station/weather_api/datasets/",
+    ).rstrip('/') + '/'
+
     if not password:
         print("[WARNING] No password configured! Please edit the configuration file.")
         print(f"[INFO] Configuration file location: {get_config_path()}")

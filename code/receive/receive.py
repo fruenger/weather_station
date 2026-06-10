@@ -289,13 +289,13 @@ def validate_sensor_data(data):
         print(f"[WARNING] CO2 out of range: {co2_ppm} ppm")
         return False
     
-    if not (0 <= tvoc_ppb <= 1000):  # TVOC range (0-1000 ppb)
+    if not (0 <= tvoc_ppb <= 10000):  # Match server API limit (ppb)
         print(f"[WARNING] TVOC out of range: {tvoc_ppb} ppb")
         return False
     
-    if not (0 <= baseline <= 65535):  # Baseline range (0-65535)
-        print(f"[WARNING] Baseline out of range: {baseline}")
-        return False
+    # if not (0 <= baseline <= 65535):  # Baseline range (0-65535)
+    #     print(f"[WARNING] Baseline out of range: {baseline}")
+    #     return False
     
     return True
 
@@ -323,13 +323,11 @@ def convert_scaled_data_to_physical(data):
     # Convert illuminance from scaled value (divided by 100 in Arduino) back to actual lux
     illuminance_actual = illuminance * 100.0  # Convert back to actual lux
     
-    # Calculate derived values
-    # Rain:
-    #   - 1.25 ml per dipper change
-    #   - the diameter of raingauge is about 130mm, r = 65mm, surface = pi*r^2 = 132.73 cm^2
-    #   - therefore per m^2 (=10000cm^2) we have a factor of about 75.34
-    #   - => 1.25*75.34 = 0.094175mm/m^2
-    rain_mm = rain_tips * 1.25  # Convert tips to mm (1.25 mm per tip)
+    # Rain (collector depth in mm for this packet):
+    #   - Each tip adds 1.25 mm depth in the 130 mm (r = 65 mm) collector.
+    #   - Uploaded as field `rain` = rain_tips * 1.25 (mm in collector).
+    #   - The website converts collector mm → mm/m² with factor 10000/132730 ≈ 0.07534.
+    rain_mm = rain_tips * 1.25
     wind_speed = wind_revolutions * 1.0  # Convert revolutions to m/s (adjust factor as needed)
     # pressure is already in hPa from scaled integer; no further conversion here
     
@@ -373,13 +371,14 @@ def upload_data_to_server(data, username, password, server_url):
         # Prepare data for upload
         jd = Time(datetime.now(timezone.utc)).jd
         
+        # `rain`: collector depth in mm (1.25 mm per tip); not mm/m² (converted on website).
         upload_data = {
             'jd'          : jd,
             'temperature' : data['temperature'],
             'pressure'    : data['pressure'], 
             'humidity'    : data['humidity'],
             'illuminance' : data['illuminance'],
-            'wind_speed'  : data['wind_speed'],
+            'wind_speed'  : data['wind_speed'],  # anemometer revolutions per interval
             'rain'        : data['rain_mm'],
             'sky_temp'    : data['sky_temp'],
             'box_temp'    : data['box_temp'],
@@ -396,9 +395,15 @@ def upload_data_to_server(data, username, password, server_url):
         if response.status_code in [200, 201]:  # Both 200 (OK) and 201 (Created) are success
             print(f"[SUCCESS] Data uploaded successfully (Packet {data['packet_number']}) - Status: {response.status_code}")
             return True
-        else:
-            print(f"[ERROR] Server returned status code {response.status_code}")
-            return False
+
+        body = (response.text or '').strip().replace('\n', ' ')
+        if len(body) > 500:
+            body = body[:500] + '…'
+        print(
+            f"[ERROR] Server returned status {response.status_code} "
+            f"for {server_url}: {body or '(empty response)'}"
+        )
+        return False
             
     except requests.exceptions.RequestException as e:
         print(f"[ERROR] Network error during upload: {e}")
@@ -581,7 +586,7 @@ def main():
             tvoc_ppb = physical_data['tvoc_ppb']
             baseline = physical_data['baseline']
             
-            print(f"[DATA] Timestamp: {timestamp}, Temp: {temperature}°C, Pressure: {pressure} hPa, Humidity: {humidity}%, Light: {illuminance} lux, Wind: {wind_speed} m/s, Rain: {rain} mm, Sky: {sky_temp}°C, Box: {box_temp}°C, Raining: {'YES' if is_raining else 'NO'}, Analog: {rain_analog}, CO2: {co2_ppm} ppm, TVOC: {tvoc_ppb} ppb, Baseline: {baseline}, Packet: {packet_number}")
+            print(f"[DATA] Timestamp: {timestamp}, Temp: {temperature}°C, Pressure: {pressure} hPa, Humidity: {humidity}%, Light: {illuminance} lux, Wind: {wind_speed} rev, Rain: {rain} mm (collector), Sky: {sky_temp}°C, Box: {box_temp}°C, Raining: {'YES' if is_raining else 'NO'}, Analog: {rain_analog}, CO2: {co2_ppm} ppm, TVOC: {tvoc_ppb} ppb, Baseline: {baseline}, Packet: {packet_number}")
             
             # Prepare data for upload
             jd = Time(datetime.now(timezone.utc)).jd
