@@ -328,7 +328,7 @@ def convert_scaled_data_to_physical(data):
     #   - Uploaded as field `rain` = rain_tips * 1.25 (mm in collector).
     #   - The website converts collector mm → mm/m² with factor 10000/132730 ≈ 0.07534.
     rain_mm = rain_tips * 1.25
-    wind_speed = wind_revolutions * 1.0  # Convert revolutions to m/s (adjust factor as needed)
+    wind_speed = float(wind_revolutions)  # Anemometer revolutions per sample (website × 0.14 → m/s)
     # pressure is already in hPa from scaled integer; no further conversion here
     
     # Convert rain detection to boolean
