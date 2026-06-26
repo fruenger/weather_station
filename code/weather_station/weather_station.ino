@@ -1,6 +1,6 @@
 // Weather Station - Sender Arduino
-// Version: 2.0 (Updated with I2C Multiplexer and CCS811 Air Quality Sensor)
-// Features: BME280, MLX90614, TSL2591, CCS811, Rain Sensors, Anemometer, nRF24L01
+// Version: 2.1 (Updated with PMSA003I Particulate Matter Sensor)
+// Features: BME280, MLX90614, TSL2591, PMSA003I, Rain Sensors, Anemometer, nRF24L01
 // Data Format: 16 int16_t values (32 bytes) with scaled integers for efficiency
 // I2C Multiplexer: TCA9548A for better sensor organization
 
@@ -11,7 +11,7 @@
 #include "DEV_Config.h"       // TSL2591 light sensor configuration
 #include "TSL2591.h"          // TSL2591 light sensor library
 #include <Adafruit_MLX90614.h> // MLX90614 infrared temperature sensor
-#include <DFRobot_CCS811.h> // CCS811 air quality sensor
+#include <Adafruit_PM25AQI.h> // PMSA003I particulate matter sensor
 
 
 // Radio Communication Libraries
@@ -29,6 +29,12 @@
 #define RAIN_REED_PIN 2      // Reed sensor for rain amount
 #define RAIN_DROP_ANALOG_PIN A1  // Analog rain drop sensor
 #define RAIN_DROP_DIGITAL_PIN 5  // Digital rain drop sensor
+#define PMSA003I_SET_PIN 6       // SET pin: LOW = sleep, HIGH = active (saves ~60-120 mA)
+
+// PMSA003I power management (solar/battery operation)
+const unsigned long PM_MEASUREMENT_INTERVAL = 300000; // Measure every 5 minutes
+const unsigned long PM_BOOT_DELAY = 3000;             // Boot time after wake
+const unsigned long PM_WARMUP_TIME = 30000;         // Fan/laser stabilization after wake
 
 // Radio Configuration
 #define RADIO_CE_PIN 9       // nRF24L01 CE pin
@@ -38,7 +44,7 @@ static const uint8_t RF_ADDRESS[5] = {'9','9','9','9','9'}; // 5-byte pipe addre
 
 // I2C Multiplexer Configuration
 #define TCA9548A_ADDRESS 0x70  // I2C address of TCA9548A multiplexer
-#define TCA_CHANNEL_0 0x01     // Channel 0: CCS811
+#define TCA_CHANNEL_0 0x01     // Channel 0: PMSA003I
 #define TCA_CHANNEL_1 0x02     // Channel 1: BME280
 #define TCA_CHANNEL_3 0x08     // Channel 3: MLX90614
 #define TCA_CHANNEL_4 0x10     // Channel 4: TSL2591
@@ -46,15 +52,23 @@ static const uint8_t RF_ADDRESS[5] = {'9','9','9','9','9'}; // 5-byte pipe addre
 // Sensor Objects
 Adafruit_BME280 bme;         // BME280 sensor object
 Adafruit_MLX90614 mlx;       // MLX90614 infrared sensor object
-DFRobot_CCS811 ccs811;               // CCS811 air quality sensor object
+Adafruit_PM25AQI aqi;                // PMSA003I particulate matter sensor object
 RF24 radio(RADIO_CE_PIN, RADIO_CSN_PIN); // RF24 radio object
 
 // Sensor Availability Flags
 bool bme_sensor_available = false;
 bool mlx_sensor_available = false;
 bool light_sensor_available = false;
-bool ccs811_sensor_available = false;
+bool pmsa003i_sensor_available = false;
 bool radio_available = false;
+
+// PMSA003I state (sleep/wake cycle for power saving)
+bool pmsa003i_awake = false;
+unsigned long pmsa003i_wake_time = 0;
+unsigned long last_pm_measurement = 0;
+int16_t last_pm1_0 = 0;
+int16_t last_pm2_5 = 0;
+int16_t last_pm10 = 0;
 
 // Anemometer Variables
 int InterruptCounter = 0;    // Wind revolution counter
@@ -90,7 +104,7 @@ void setup() {
     ; // Wait for serial connection
   }
   Serial.println(F("Weather Station Sender Starting..."));
-  Serial.println(F("Version 2.0"));
+  Serial.println(F("Version 2.1"));
 
   // Initialize rain drop sensor pins
   pinMode(RAIN_REED_PIN, INPUT);
@@ -103,7 +117,7 @@ void setup() {
   initializeBME280();
   initializeMLX90614();
   initializeTSL2591();
-  initializeCCS811();
+  initializePMSA003I();
 
   // Initialize nRF24L01 radio
   initializeRadio();
@@ -178,32 +192,26 @@ void initializeTSL2591() {
   }
 }
 
-// Initialize CCS811 air quality sensor
-void initializeCCS811() {
-  selectI2CChannel(TCA_CHANNEL_0);
-  
-  int attempts = 0;
-  const int maxAttempts = 20;
-  
-  while(ccs811.begin() != 0 && attempts < maxAttempts) {
-    attempts++;
-    Serial.print(F("CCS811 initialization attempt "));
-    Serial.print(attempts);
-    Serial.print(F("/"));
-    Serial.print(maxAttempts);
-    Serial.println(F(" failed"));
-    delay(1000);
-  }
-  
-  if (attempts >= maxAttempts) {
-    ccs811_sensor_available = false;
-    Serial.println(F("CCS811 sensor initialization failed after 20 attempts"));
-    Serial.println(F("Using default values for CCS811 sensor data"));
-  } else {
-    ccs811_sensor_available = true;
-    Serial.println(F("CCS811 air quality sensor initialized successfully (Channel 0)"));
-    Serial.println(F("CCS811 configured for default measurements"));
-  }
+// Initialize PMSA003I particulate matter sensor (SET pin + deferred I2C init)
+void initializePMSA003I() {
+  pinMode(PMSA003I_SET_PIN, OUTPUT);
+  digitalWrite(PMSA003I_SET_PIN, LOW); // Start in sleep mode to save power
+  pmsa003i_sensor_available = false;
+  pmsa003i_awake = false;
+  Serial.println(F("PMSA003I configured (sleep mode, SET pin on D6)"));
+  Serial.println(F("PM measurements every 5 minutes with 30s warm-up"));
+}
+
+void wakePMSA003I() {
+  digitalWrite(PMSA003I_SET_PIN, HIGH);
+  pmsa003i_awake = true;
+  pmsa003i_wake_time = millis();
+}
+
+void sleepPMSA003I() {
+  digitalWrite(PMSA003I_SET_PIN, LOW);
+  pmsa003i_awake = false;
+  pmsa003i_sensor_available = false; // Re-init I2C on next wake
 }
 
 // Initialize nRF24L01 radio module
@@ -245,8 +253,8 @@ void loop() {
   // Read TSL2591 light sensor data
   readTSL2591Data();
 
-  // Read CCS811 air quality sensor data
-  readCCS811Data();
+  // Read PMSA003I particulate matter sensor data
+  readPMSA003IData();
 
   // Read rain sensor data (reed sensor for amount)
   readRainReedData();
@@ -335,53 +343,63 @@ void readTSL2591Data() {
   }
 }
 
-// Read CCS811 air quality sensor data
-void readCCS811Data() {
-  if (ccs811_sensor_available) {
-    selectI2CChannel(TCA_CHANNEL_0);
-    
-    if (ccs811.checkDataReady()) {
-      // Environmental compensation using BME280 data
-      if (bme_sensor_available) {
-        // Get temperature and humidity from BME280 for compensation
-        selectI2CChannel(TCA_CHANNEL_1);
-        float temp = bme.readTemperature();
-        float humidity = bme.readHumidity();
-        
-        // Set environmental data for CCS811 compensation
-        selectI2CChannel(TCA_CHANNEL_0);
-        ccs811.setInTempHum(temp, humidity);
-        
-        Serial.print(F("CCS811 Environmental Compensation - Temp: "));
-        Serial.print(temp);
-        Serial.print(F("°C, Humidity: "));
-        Serial.print(humidity);
-        Serial.println(F("%"));
-      }
-      
-      // Get CO2 and TVOC values (now with environmental compensation)
-      uint16_t co2 = ccs811.getCO2PPM();
-      uint16_t tvoc = ccs811.getTVOCPPB();
-      
-      // Store values directly (CCS811 provides ppm values)
-      results[12] = (int16_t)co2;   // CO2 in ppm
-      results[13] = (int16_t)tvoc;  // TVOC in ppb
-      
-      // Get baseline values for calibration
-      uint16_t baseline = ccs811.readBaseLine();
-      results[14] = (int16_t)baseline; // Baseline for CO2 calibration
-      
-    } else {
-      // Use previous values if no new data available
-      results[12] = 0; // CO2 default
-      results[13] = 0; // TVOC default
-      results[14] = 0; // Baseline default
+// Read PMSA003I particulate matter sensor data (with sleep/wake power management)
+void readPMSA003IData() {
+  // Always transmit last known values between measurement cycles
+  results[12] = last_pm1_0;
+  results[13] = last_pm2_5;
+  results[14] = last_pm10;
+
+  unsigned long now = millis();
+
+  if (!pmsa003i_awake) {
+    if (now - last_pm_measurement >= PM_MEASUREMENT_INTERVAL) {
+      Serial.println(F("PMSA003I: waking sensor for measurement"));
+      wakePMSA003I();
     }
-  } else {
-    // Use default values if sensor is not available
-    results[12] = 0; // CO2 default
-    results[13] = 0; // TVOC default
-    results[14] = 0; // Baseline default
+    return;
+  }
+
+  unsigned long awake_time = now - pmsa003i_wake_time;
+
+  // Initialize I2C after boot delay
+  if (!pmsa003i_sensor_available && awake_time >= PM_BOOT_DELAY) {
+    selectI2CChannel(TCA_CHANNEL_0);
+    if (aqi.begin_I2C()) {
+      pmsa003i_sensor_available = true;
+      Serial.println(F("PMSA003I initialized successfully (Channel 0)"));
+    } else {
+      Serial.println(F("PMSA003I I2C init failed, will retry next cycle"));
+      sleepPMSA003I();
+      last_pm_measurement = now;
+      return;
+    }
+  }
+
+  // Wait for fan/laser warm-up before reading
+  if (!pmsa003i_sensor_available || awake_time < (PM_BOOT_DELAY + PM_WARMUP_TIME)) {
+    return;
+  }
+
+  selectI2CChannel(TCA_CHANNEL_0);
+  PM25_AQI_Data data;
+  if (aqi.read(&data)) {
+    last_pm1_0 = (int16_t)data.pm10_standard;  // PM 1.0 ug/m3
+    last_pm2_5 = (int16_t)data.pm25_standard;  // PM 2.5 ug/m3
+    last_pm10 = (int16_t)data.pm100_standard;  // PM 10 ug/m3
+    results[12] = last_pm1_0;
+    results[13] = last_pm2_5;
+    results[14] = last_pm10;
+
+    Serial.print(F("PMSA003I - PM1.0: "));
+    Serial.print(last_pm1_0);
+    Serial.print(F(" PM2.5: "));
+    Serial.print(last_pm2_5);
+    Serial.print(F(" PM10: "));
+    Serial.println(last_pm10);
+
+    sleepPMSA003I();
+    last_pm_measurement = now;
   }
 }
 
@@ -529,15 +547,14 @@ void printDebugInfo() {
   Serial.print(F(", Is Raining: "));
   Serial.println(isRaining ? F("YES") : F("NO"));
   
-  // Print air quality debug info
-  if (ccs811_sensor_available) {
-    Serial.print(F("Air Quality - CO2: "));
+  // Print particulate matter debug info
+  if (last_pm2_5 > 0) {
+    Serial.print(F("Particulate Matter - PM1.0: "));
     Serial.print(results[12]);
-    Serial.print(F(" ppm, TVOC: "));
+    Serial.print(F(" PM2.5: "));
     Serial.print(results[13]);
-    Serial.print(F(" ppb, Baseline: "));
-    Serial.print(results[14]);
-    Serial.println();
+    Serial.print(F(" PM10: "));
+    Serial.println(results[14]);
   }
 }
 

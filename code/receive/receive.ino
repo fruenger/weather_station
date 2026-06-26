@@ -1,5 +1,5 @@
 // Weather Station - Receiver Arduino
-// Version: 2.0 (Updated for I2C Multiplexer and CCS811 Air Quality Sensor)
+// Version: 2.1 (Updated for PMSA003I Particulate Matter Sensor)
 // Features: Receives data from sender and forwards via serial to Python script
 // Data Format: 16 int16_t values (32 bytes) with scaled integers
 // I2C Multiplexer: TCA9548A for better sensor organization
@@ -50,7 +50,7 @@ void setup()
   delay(500);
   
   Serial.println(F("Weather Station Receiver Starting..."));
-  Serial.println(F("Version 2.0"));
+  Serial.println(F("Version 2.1"));
 }
 
 // Helper: modulo-65536 increment check
@@ -123,15 +123,14 @@ void loop()
     }
     Serial.println();
     
-    // Print air quality data if available
-    if (results[12] > 0 || results[13] > 0) {
-      Serial.print(F("Air Quality - CO2: "));
+    // Print particulate matter data if available
+    if (results[12] > 0 || results[13] > 0 || results[14] > 0) {
+      Serial.print(F("Particulate Matter - PM1.0: "));
       Serial.print(results[12]);
-      Serial.print(F(" ppm, TVOC: "));
+      Serial.print(F(" PM2.5: "));
       Serial.print(results[13]);
-      Serial.print(F(" ppb, Baseline: "));
-      Serial.print(results[14]);
-      Serial.println();
+      Serial.print(F(" PM10: "));
+      Serial.println(results[14]);
     }
   }
   

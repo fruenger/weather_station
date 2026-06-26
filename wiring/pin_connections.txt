@@ -1,6 +1,6 @@
 ================================================================================
                     WEATHER STATION PIN CONNECTIONS
-                    Version 2.0 - I2C Multiplexer + CCS811
+                    Version 2.1 - I2C Multiplexer + PMSA003I
 ================================================================================
 
 ARDUINO UNO PIN ASSIGNMENTS
@@ -8,9 +8,9 @@ ARDUINO UNO PIN ASSIGNMENTS
 
 POWER PINS:
 -----------
-5V    -> Multiple sensors (BME280, MLX90614, TSL2591, CCS811, Anemometer, nRF24L01)
-3.3V  -> Multiple sensors (BME280, MLX90614, TSL2591, CCS811, Anemometer, nRF24L01)
-GND   -> Multiple sensors (BME280, MLX90614, TSL2591, CCS811, Anemometer, nRF24L01)
+5V    -> Multiple sensors (BME280, MLX90614, TSL2591, PMSA003I, Anemometer, nRF24L01)
+3.3V  -> Multiple sensors (BME280, MLX90614, TSL2591, PMSA003I, Anemometer, nRF24L01)
+GND   -> Multiple sensors (BME280, MLX90614, TSL2591, PMSA003I, Anemometer, nRF24L01)
 
 I2C BUS (SDA/SCL):
 -------------------
@@ -23,6 +23,7 @@ D2  -> Rain Reed Sensor (Rain Amount Counter)
 D3  -> Anemometer Signal (Wind Speed - Hall Sensor)
 D4  -> Reset Pin (Watchdog/Manual Reset)
 D5  -> Rain Drop Sensor Digital Pin
+D6  -> PMSA003I SET Pin (LOW = sleep, HIGH = active)
 D8  -> nRF24L01 CSN (Chip Select)
 D9  -> nRF24L01 CE (Chip Enable)
 D10 -> nRF24L01 MOSI (Master Out Slave In)
@@ -44,7 +45,7 @@ Address: 0x70
 Function: Routes I2C communication to multiple sensors
 
 Channel Assignments:
-- Channel 0 (0x01) -> CCS811 (Air Quality Sensor)
+- Channel 0 (0x01) -> PMSA003I (Particulate Matter Sensor)
 - Channel 1 (0x02) -> BME280 (Temperature, Humidity, Pressure)
 - Channel 3 (0x08) -> MLX90614 (Infrared Temperature)
 - Channel 4 (0x10) -> TSL2591 (Light Sensor)
@@ -95,23 +96,24 @@ SENSOR DETAILED CONNECTIONS
    I2C Address: 0x29
    Function: Light intensity measurement
 
-4. CCS811 (Air Quality Sensor)
+4. PMSA003I (Particulate Matter Sensor - Adafruit Breakout)
 ================================================================================
-   Pin    -> TCA9548A Channel 0
+   Pin    -> TCA9548A Channel 0 / Arduino
    -------  --------------------
-   VCC     -> 3.3V
+   VIN     -> 3.3V
    GND     -> GND
    SDA     -> TCA9548A SDA (Channel 0)
    SCL     -> TCA9548A SCL (Channel 0)
-   WAKE    -> GND
+   SET     -> D6 (LOW = sleep, HIGH = active; saves ~60-120 mA)
+   RESET   -> Not connected (internal pull-up)
    
-   I2C Address: 0x5B
-   Function: CO2 and TVOC measurement
+   I2C Address: 0x12
+   Function: PM1.0, PM2.5, PM10 measurement (ug/m3)
    Features: 
-   - CO2 measurement (400-5000 ppm)
-   - TVOC measurement (0-1000 ppb)
-   - Baseline calibration
-   - Environmental compensation
+   - Particulate matter in standard units (ug/m3)
+   - Sleep mode via SET pin for solar/battery operation
+   - 30 second warm-up after wake from sleep
+   - Measurement interval: every 5 minutes (configurable in firmware)
 
 5. Anemometer (Wind Speed Sensor)
 ================================================================================
@@ -183,7 +185,7 @@ I2C ADDRESSES:
 - BME280: 0x76 (Channel 1)
 - MLX90614: 0x5A (Channel 3)
 - TSL2591: 0x29 (Channel 4)
-- CCS811: 0x5B (Channel 0)
+- PMSA003I: 0x12 (Channel 0)
 
 INTERRUPTS:
 - D3 is used for anemometer interrupt
@@ -199,7 +201,7 @@ SPI BUS:
 - These pins are dedicated to SPI communication
 
 AIR QUALITY SENSOR:
-- CCS811 provides CO2 and TVOC measurements
+- PMSA003I provides PM1.0, PM2.5, PM10 measurements (ug/m3)
 - Requires 20-minute warm-up period
 - Baseline calibration improves accuracy
 - Environmental compensation for temperature and humidity
@@ -245,7 +247,7 @@ I2C MULTIPLEXER CHANNEL ASSIGNMENTS
 
 TCA9548A Channel | Sensor        | I2C Address | Function
 ------------------|---------------|-------------|------------------
-Channel 0 (0x01)  | CCS811       | 0x5B        | Air Quality (CO2, TVOC)
+Channel 0 (0x01)  | PMSA003I     | 0x12        | Particulate Matter (PM1.0, PM2.5, PM10)
 Channel 1 (0x02)  | BME280       | 0x76        | Temperature, Humidity, Pressure
 Channel 2 (0x04)  | Reserved     | -           | Future expansion
 Channel 3 (0x08)  | MLX90614     | 0x5A        | Infrared Temperature

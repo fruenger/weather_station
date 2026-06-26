@@ -21,7 +21,7 @@ The system uses nRF24L01 radio modules for wireless communication and supports r
 - **Rain Reed Switch**: Tipping bucket rain gauge for rainfall measurement
 - **Rain Drop Sensor**: Analog rain detection sensor
 - **Anemometer**: Wind speed measurement via reed switch
-- **CCS811**: Air quality sensor for CO2 and TVOC measurements
+- **PMSA003I**: Particulate matter sensor (PM1.0, PM2.5, PM10) with sleep/wake power management
 
 ### Microcontrollers & Communication
 
@@ -39,7 +39,7 @@ The system uses nRF24L01 radio modules for wireless communication and supports r
 The system transmits 16 int16_t values (32 bytes total - nRF24L01 hardware limit):
 
 ```
-[timestamp, temperature*100, pressure*10, humidity*100, illuminance, rain_tips, wind_revolutions, packet_number, sky_temp*100, box_temp*100, rain_detection, rain_analog, co2_ppm, tvoc_ppb, baseline, reserved]
+[timestamp, temperature*100, pressure*10, humidity*100, illuminance, rain_tips, wind_revolutions, packet_number, sky_temp*100, box_temp*100, rain_detection, rain_analog, pm1_0, pm2_5, pm10, reserved]
 ```
 
 ### Data Scaling
@@ -58,7 +58,7 @@ The system transmits 16 int16_t values (32 bytes total - nRF24L01 hardware limit
 - **TSL2591 Library**: Light sensor interface
 - **BME280 Library**: Environmental sensor interface
 - **MLX90614 Library**: Infrared temperature sensor interface
-- **CCS811 Library**: Air quality sensor interface
+- **Adafruit PM25 AQI Library**: PMSA003I particulate matter sensor interface
 
 ### Python Processing
 
@@ -75,7 +75,7 @@ The system transmits 16 int16_t values (32 bytes total - nRF24L01 hardware limit
    - BME280: I2C (SDA/SCL)
    - TSL2591: I2C via TCA9548A multiplexer
    - MLX90614: I2C via TCA9548A multiplexer
-   - CCS811: I2C via TCA9548A multiplexer
+   - PMSA003I: I2C via TCA9548A multiplexer (Channel 0), SET pin on D6
    - Rain reed switch: Digital pin
    - Rain drop sensor: Analog + Digital pins
    - Anemometer: Digital pin
@@ -93,7 +93,8 @@ The system transmits 16 int16_t values (32 bytes total - nRF24L01 hardware limit
    
    - Adafruit BME280 Library
    - Adafruit MLX90614 Library
-   - SparkFun CCS811 Arduino Library
+   - Adafruit PM25 AQI Library
+   - Adafruit BusIO
    - RF24 Library
 
 2. Install Python dependencies:

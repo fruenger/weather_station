@@ -16,10 +16,10 @@ Features:
 
 Data Format:
 The Arduino sends 16 int16_t values in binary format (32 bytes - nRF24L01 limit):
-[timestamp, temperature*100, pressure/10, humidity*100, illuminance, rain_tips, wind_revolutions, packet_number, sky_temp*100, box_temp*100, rain_detection, rain_analog, co2_ppm, tvoc_ppb, baseline, reserved]
+[timestamp, temperature*100, pressure/10, humidity*100, illuminance, rain_tips, wind_revolutions, packet_number, sky_temp*100, box_temp*100, rain_detection, rain_analog, pm1_0, pm2_5, pm10, reserved]
 
 Author: Weather Station Project
-Version: 2.0 (Updated for I2C Multiplexer and CCS811)
+Version: 2.1 (Updated for PMSA003I Particulate Matter Sensor)
 Date: 2025-07-16
 """
 
@@ -231,8 +231,8 @@ def validate_sensor_data(data):
     if len(data) != 16:
         return False
     
-    # Extract the main sensor data (first 15 values including CCS811)
-    timestamp, temp_scaled, pressure_scaled, humidity_scaled, illuminance, rain_tips, wind_revolutions, packet_number, sky_temp_scaled, box_temp_scaled, rain_detection, rain_analog, co2_ppm, tvoc_ppb, baseline = data[:15]
+    # Extract the main sensor data (first 15 values including PMSA003I)
+    timestamp, temp_scaled, pressure_scaled, humidity_scaled, illuminance, rain_tips, wind_revolutions, packet_number, sky_temp_scaled, box_temp_scaled, rain_detection, rain_analog, pm1_0, pm2_5, pm10 = data[:15]
     
     # Convert scaled values back to physical units for validation
     temperature = temp_scaled / 100.0  # Convert back from scaled integer
@@ -284,18 +284,18 @@ def validate_sensor_data(data):
         print(f"[WARNING] Rain analog value out of range: {rain_analog}")
         return False
     
-    # CCS811 air quality sensor validation
-    if not (0 <= co2_ppm <= 5000):  # CO2 range (0-5000 ppm)
-        print(f"[WARNING] CO2 out of range: {co2_ppm} ppm")
+    # PMSA003I particulate matter sensor validation (ug/m3)
+    if not (0 <= pm1_0 <= 1000):
+        print(f"[WARNING] PM1.0 out of range: {pm1_0} ug/m3")
         return False
-    
-    if not (0 <= tvoc_ppb <= 10000):  # Match server API limit (ppb)
-        print(f"[WARNING] TVOC out of range: {tvoc_ppb} ppb")
+
+    if not (0 <= pm2_5 <= 1000):
+        print(f"[WARNING] PM2.5 out of range: {pm2_5} ug/m3")
         return False
-    
-    # if not (0 <= baseline <= 65535):  # Baseline range (0-65535)
-    #     print(f"[WARNING] Baseline out of range: {baseline}")
-    #     return False
+
+    if not (0 <= pm10 <= 1000):
+        print(f"[WARNING] PM10 out of range: {pm10} ug/m3")
+        return False
     
     return True
 
@@ -310,8 +310,8 @@ def convert_scaled_data_to_physical(data):
     Returns:
         dict: Dictionary with physical units and calculated values
     """
-    # Extract main sensor data (first 15 values including CCS811)
-    timestamp, temp_scaled, pressure_scaled, humidity_scaled, illuminance, rain_tips, wind_revolutions, packet_number, sky_temp_scaled, box_temp_scaled, rain_detection, rain_analog, co2_ppm, tvoc_ppb, baseline = data[:15]
+    # Extract main sensor data (first 15 values including PMSA003I)
+    timestamp, temp_scaled, pressure_scaled, humidity_scaled, illuminance, rain_tips, wind_revolutions, packet_number, sky_temp_scaled, box_temp_scaled, rain_detection, rain_analog, pm1_0, pm2_5, pm10 = data[:15]
     
     # Convert scaled values back to physical units
     temperature = temp_scaled / 100.0  # Convert back from scaled integer
@@ -349,9 +349,9 @@ def convert_scaled_data_to_physical(data):
         'box_temp': box_temp,
         'is_raining': is_raining,
         'rain_analog': rain_analog,
-        'co2_ppm': co2_ppm,
-        'tvoc_ppb': tvoc_ppb,
-        'baseline': baseline
+        'pm1_0': pm1_0,
+        'pm2_5': pm2_5,
+        'pm10': pm10
     }
 
 
@@ -384,9 +384,9 @@ def upload_data_to_server(data, username, password, server_url):
             'box_temp'    : data['box_temp'],
             'is_raining'  : 1 if data['is_raining'] else 0,  # Convert boolean to integer for server
             'rain_analog' : data['rain_analog'],
-            'co2_ppm'     : data['co2_ppm'],
-            'tvoc_ppb'    : data['tvoc_ppb'],
-            'baseline'    : data['baseline']
+            'pm1_0'       : data['pm1_0'],
+            'pm2_5'       : data['pm2_5'],
+            'pm10'        : data['pm10']
         }
         
         # Send POST request to server with authentication
@@ -424,7 +424,7 @@ def save_failed_data(data, filename):
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         # Create CSV line
-        csv_line = f"{timestamp},{data['temperature']},{data['pressure']},{data['humidity']},{data['illuminance']},{data['wind_speed']},{data['rain_mm']},{data['sky_temp']},{data['box_temp']},{1 if data['is_raining'] else 0},{data['rain_analog']},{data['co2_ppm']},{data['tvoc_ppb']},{data['baseline']}\n"
+        csv_line = f"{timestamp},{data['temperature']},{data['pressure']},{data['humidity']},{data['illuminance']},{data['wind_speed']},{data['rain_mm']},{data['sky_temp']},{data['box_temp']},{1 if data['is_raining'] else 0},{data['rain_analog']},{data['pm1_0']},{data['pm2_5']},{data['pm10']}\n"
         
         # Append to file
         with open(filename, 'a') as f:
@@ -521,7 +521,7 @@ def readline(port_name, timestamp=True):
 def main():
     """Main function for weather station data receiver."""
     print("Weather Station Data Receiver")
-    print("Version 2.01")
+    print("Version 2.1")
     print("=" * 50)
     
     # Load configuration
@@ -582,11 +582,11 @@ def main():
             box_temp = physical_data['box_temp']
             is_raining = physical_data['is_raining']
             rain_analog = physical_data['rain_analog']
-            co2_ppm = physical_data['co2_ppm']
-            tvoc_ppb = physical_data['tvoc_ppb']
-            baseline = physical_data['baseline']
+            pm1_0 = physical_data['pm1_0']
+            pm2_5 = physical_data['pm2_5']
+            pm10 = physical_data['pm10']
             
-            print(f"[DATA] Timestamp: {timestamp}, Temp: {temperature}°C, Pressure: {pressure} hPa, Humidity: {humidity}%, Light: {illuminance} lux, Wind: {wind_speed} rev, Rain: {rain} mm (collector), Sky: {sky_temp}°C, Box: {box_temp}°C, Raining: {'YES' if is_raining else 'NO'}, Analog: {rain_analog}, CO2: {co2_ppm} ppm, TVOC: {tvoc_ppb} ppb, Baseline: {baseline}, Packet: {packet_number}")
+            print(f"[DATA] Timestamp: {timestamp}, Temp: {temperature}°C, Pressure: {pressure} hPa, Humidity: {humidity}%, Light: {illuminance} lux, Wind: {wind_speed} rev, Rain: {rain} mm (collector), Sky: {sky_temp}°C, Box: {box_temp}°C, Raining: {'YES' if is_raining else 'NO'}, Analog: {rain_analog}, PM1.0: {pm1_0} PM2.5: {pm2_5} PM10: {pm10} ug/m3, Packet: {packet_number}")
             
             # Prepare data for upload
             jd = Time(datetime.now(timezone.utc)).jd
@@ -603,9 +603,9 @@ def main():
                 'box_temp'    : box_temp,
                 'is_raining'  : 1 if is_raining else 0,  # Convert boolean to integer for server
                 'rain_analog' : rain_analog,
-                'co2_ppm'     : co2_ppm,
-                'tvoc_ppb'    : tvoc_ppb,
-                'baseline'    : baseline,
+                'pm1_0'       : pm1_0,
+                'pm2_5'       : pm2_5,
+                'pm10'        : pm10,
                 'packet_number': packet_number
             }
 
