@@ -1,5 +1,5 @@
 // Weather Station - Receiver Arduino
-// Version: 2.1 (Updated for PMSA003I Particulate Matter Sensor)
+// Version: 2.2 (Updated for DFRobot SEN0636 UV Index Sensor)
 // Features: Receives data from sender and forwards via serial to Python script
 // Data Format: 16 int16_t values (32 bytes) with scaled integers
 // I2C Multiplexer: TCA9548A for better sensor organization
@@ -50,7 +50,7 @@ void setup()
   delay(500);
   
   Serial.println(F("Weather Station Receiver Starting..."));
-  Serial.println(F("Version 2.1"));
+  Serial.println(F("Version 2.2"));
 }
 
 // Helper: modulo-65536 increment check
@@ -117,7 +117,7 @@ void loop()
     Serial.print(F("Packet "));
     Serial.print(currentPacketNumber);
     Serial.print(F(" received. Data: "));
-    for (int i = 0; i < 15; i++) {  // Print first 15 values for debug
+    for (int i = 0; i < 16; i++) {  // Print all 16 values for debug
       Serial.print(results[i]);
       Serial.print(F(" "));
     }
@@ -131,6 +131,11 @@ void loop()
       Serial.print(results[13]);
       Serial.print(F(" PM10: "));
       Serial.println(results[14]);
+    }
+
+    if (results[15] > 0) {
+      Serial.print(F("UV Index: "));
+      Serial.println(results[15]);
     }
   }
   

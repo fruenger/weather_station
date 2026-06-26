@@ -1,6 +1,6 @@
 // Weather Station - Sender Arduino
-// Version: 2.1 (Updated with PMSA003I Particulate Matter Sensor)
-// Features: BME280, MLX90614, TSL2591, PMSA003I, Rain Sensors, Anemometer, nRF24L01
+// Version: 2.2 (Updated with DFRobot SEN0636 UV Index Sensor)
+// Features: BME280, MLX90614, TSL2591, PMSA003I, SEN0636 UV, Rain Sensors, Anemometer, nRF24L01
 // Data Format: 16 int16_t values (32 bytes) with scaled integers for efficiency
 // I2C Multiplexer: TCA9548A for better sensor organization
 
@@ -12,6 +12,7 @@
 #include "TSL2591.h"          // TSL2591 light sensor library
 #include <Adafruit_MLX90614.h> // MLX90614 infrared temperature sensor
 #include <Adafruit_PM25AQI.h> // PMSA003I particulate matter sensor
+#include <DFRobot_UVIndex240370Sensor.h> // SEN0636 UV index sensor
 
 
 // Radio Communication Libraries
@@ -46,6 +47,7 @@ static const uint8_t RF_ADDRESS[5] = {'9','9','9','9','9'}; // 5-byte pipe addre
 #define TCA9548A_ADDRESS 0x70  // I2C address of TCA9548A multiplexer
 #define TCA_CHANNEL_0 0x01     // Channel 0: PMSA003I
 #define TCA_CHANNEL_1 0x02     // Channel 1: BME280
+#define TCA_CHANNEL_2 0x04     // Channel 2: SEN0636 UV Index
 #define TCA_CHANNEL_3 0x08     // Channel 3: MLX90614
 #define TCA_CHANNEL_4 0x10     // Channel 4: TSL2591
 
@@ -53,6 +55,7 @@ static const uint8_t RF_ADDRESS[5] = {'9','9','9','9','9'}; // 5-byte pipe addre
 Adafruit_BME280 bme;         // BME280 sensor object
 Adafruit_MLX90614 mlx;       // MLX90614 infrared sensor object
 Adafruit_PM25AQI aqi;                // PMSA003I particulate matter sensor object
+DFRobot_UVIndex240370Sensor uvSensor(&Wire); // SEN0636 UV index sensor object
 RF24 radio(RADIO_CE_PIN, RADIO_CSN_PIN); // RF24 radio object
 
 // Sensor Availability Flags
@@ -60,6 +63,7 @@ bool bme_sensor_available = false;
 bool mlx_sensor_available = false;
 bool light_sensor_available = false;
 bool pmsa003i_sensor_available = false;
+bool uv_sensor_available = false;
 bool radio_available = false;
 
 // PMSA003I state (sleep/wake cycle for power saving)
@@ -69,6 +73,7 @@ unsigned long last_pm_measurement = 0;
 int16_t last_pm1_0 = 0;
 int16_t last_pm2_5 = 0;
 int16_t last_pm10 = 0;
+int16_t last_uv_index = 0;
 
 // Anemometer Variables
 int InterruptCounter = 0;    // Wind revolution counter
@@ -104,7 +109,7 @@ void setup() {
     ; // Wait for serial connection
   }
   Serial.println(F("Weather Station Sender Starting..."));
-  Serial.println(F("Version 2.1"));
+  Serial.println(F("Version 2.2"));
 
   // Initialize rain drop sensor pins
   pinMode(RAIN_REED_PIN, INPUT);
@@ -118,6 +123,7 @@ void setup() {
   initializeMLX90614();
   initializeTSL2591();
   initializePMSA003I();
+  initializeUVSensor();
 
   // Initialize nRF24L01 radio
   initializeRadio();
@@ -214,6 +220,32 @@ void sleepPMSA003I() {
   pmsa003i_sensor_available = false; // Re-init I2C on next wake
 }
 
+// Initialize DFRobot SEN0636 UV index sensor (I2C mode, switch must be on I2C)
+void initializeUVSensor() {
+  selectI2CChannel(TCA_CHANNEL_2);
+
+  int attempts = 0;
+  const int maxAttempts = 10;
+
+  while (uvSensor.begin() != true && attempts < maxAttempts) {
+    attempts++;
+    Serial.print(F("UV sensor init attempt "));
+    Serial.print(attempts);
+    Serial.print(F("/"));
+    Serial.print(maxAttempts);
+    Serial.println(F(" failed"));
+    delay(1000);
+  }
+
+  if (attempts >= maxAttempts) {
+    uv_sensor_available = false;
+    Serial.println(F("SEN0636 UV sensor init failed — check I2C wiring and mode switch"));
+  } else {
+    uv_sensor_available = true;
+    Serial.println(F("SEN0636 UV sensor initialized successfully (Channel 2)"));
+  }
+}
+
 // Initialize nRF24L01 radio module
 void initializeRadio() {
   if (radio.begin()) {
@@ -256,6 +288,9 @@ void loop() {
   // Read PMSA003I particulate matter sensor data
   readPMSA003IData();
 
+  // Read SEN0636 UV index sensor data
+  readUVIndexData();
+
   // Read rain sensor data (reed sensor for amount)
   readRainReedData();
 
@@ -267,11 +302,6 @@ void loop() {
 
   // Add packet number for tracking
   results[7] = (int16_t)packetNumber;
-
-  // Clear remaining data slots for future expansion
-  for (int i = 15; i < 16; i++) {
-    results[i] = 0;
-  }
 
   // Transmit data via radio
   transmitData();
@@ -403,6 +433,20 @@ void readPMSA003IData() {
   }
 }
 
+// Read SEN0636 UV index sensor data
+void readUVIndexData() {
+  results[15] = last_uv_index;
+
+  if (!uv_sensor_available) {
+    return;
+  }
+
+  selectI2CChannel(TCA_CHANNEL_2);
+  uint16_t uvIndex = uvSensor.readUvIndexData();
+  last_uv_index = (int16_t)uvIndex;
+  results[15] = last_uv_index;
+}
+
 // Read rain reed sensor data (for rain amount measurement)
 void readRainReedData() {
   // Handle first loop initialization
@@ -529,7 +573,7 @@ void printTransmissionStats() {
 void printDebugInfo() {
   // Print scaled values
   Serial.print(F("Scaled values: "));
-  for (int i = 0; i < 15; i++) {
+  for (int i = 0; i < 16; i++) {
     Serial.print(results[i]);
     Serial.print(F(" "));
   }
@@ -555,6 +599,11 @@ void printDebugInfo() {
     Serial.print(results[13]);
     Serial.print(F(" PM10: "));
     Serial.println(results[14]);
+  }
+
+  if (last_uv_index > 0) {
+    Serial.print(F("UV Index: "));
+    Serial.println(results[15]);
   }
 }
 

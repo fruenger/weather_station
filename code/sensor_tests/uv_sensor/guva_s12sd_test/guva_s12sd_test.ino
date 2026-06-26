@@ -4,6 +4,9 @@
  * This program tests the Adafruit Analog UV Light Sensor Breakout (GUVA-S12SD)
  * and displays raw ADC value, output voltage, estimated UV index, and risk level.
  *
+ * NOT for DFRobot Gravity UV Index Sensor (SEN0636) — use uv_index_test.ino for that.
+ * The DFRobot sensor uses I2C and a different library; it will NOT work on pin A0.
+ *
  * Hardware:
  * - Adafruit Analog UV Light Sensor Breakout - GUVA-S12SD (Product ID 1918)
  * - Arduino Uno/Nano

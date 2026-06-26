@@ -16,10 +16,10 @@ Features:
 
 Data Format:
 The Arduino sends 16 int16_t values in binary format (32 bytes - nRF24L01 limit):
-[timestamp, temperature*100, pressure/10, humidity*100, illuminance, rain_tips, wind_revolutions, packet_number, sky_temp*100, box_temp*100, rain_detection, rain_analog, pm1_0, pm2_5, pm10, reserved]
+[timestamp, temperature*100, pressure/10, humidity*100, illuminance, rain_tips, wind_revolutions, packet_number, sky_temp*100, box_temp*100, rain_detection, rain_analog, pm1_0, pm2_5, pm10, uv_index]
 
 Author: Weather Station Project
-Version: 2.1 (Updated for PMSA003I Particulate Matter Sensor)
+Version: 2.2 (Updated for DFRobot SEN0636 UV Index Sensor)
 Date: 2025-07-16
 """
 
@@ -232,7 +232,7 @@ def validate_sensor_data(data):
         return False
     
     # Extract the main sensor data (first 15 values including PMSA003I)
-    timestamp, temp_scaled, pressure_scaled, humidity_scaled, illuminance, rain_tips, wind_revolutions, packet_number, sky_temp_scaled, box_temp_scaled, rain_detection, rain_analog, pm1_0, pm2_5, pm10 = data[:15]
+    timestamp, temp_scaled, pressure_scaled, humidity_scaled, illuminance, rain_tips, wind_revolutions, packet_number, sky_temp_scaled, box_temp_scaled, rain_detection, rain_analog, pm1_0, pm2_5, pm10, uv_index = data
     
     # Convert scaled values back to physical units for validation
     temperature = temp_scaled / 100.0  # Convert back from scaled integer
@@ -296,6 +296,10 @@ def validate_sensor_data(data):
     if not (0 <= pm10 <= 1000):
         print(f"[WARNING] PM10 out of range: {pm10} ug/m3")
         return False
+
+    if not (0 <= uv_index <= 20):
+        print(f"[WARNING] UV index out of range: {uv_index}")
+        return False
     
     return True
 
@@ -311,7 +315,7 @@ def convert_scaled_data_to_physical(data):
         dict: Dictionary with physical units and calculated values
     """
     # Extract main sensor data (first 15 values including PMSA003I)
-    timestamp, temp_scaled, pressure_scaled, humidity_scaled, illuminance, rain_tips, wind_revolutions, packet_number, sky_temp_scaled, box_temp_scaled, rain_detection, rain_analog, pm1_0, pm2_5, pm10 = data[:15]
+    timestamp, temp_scaled, pressure_scaled, humidity_scaled, illuminance, rain_tips, wind_revolutions, packet_number, sky_temp_scaled, box_temp_scaled, rain_detection, rain_analog, pm1_0, pm2_5, pm10, uv_index = data
     
     # Convert scaled values back to physical units
     temperature = temp_scaled / 100.0  # Convert back from scaled integer
@@ -351,7 +355,8 @@ def convert_scaled_data_to_physical(data):
         'rain_analog': rain_analog,
         'pm1_0': pm1_0,
         'pm2_5': pm2_5,
-        'pm10': pm10
+        'pm10': pm10,
+        'uv_index': uv_index
     }
 
 
@@ -386,7 +391,8 @@ def upload_data_to_server(data, username, password, server_url):
             'rain_analog' : data['rain_analog'],
             'pm1_0'       : data['pm1_0'],
             'pm2_5'       : data['pm2_5'],
-            'pm10'        : data['pm10']
+            'pm10'        : data['pm10'],
+            'uv_index'    : data['uv_index']
         }
         
         # Send POST request to server with authentication
@@ -424,7 +430,7 @@ def save_failed_data(data, filename):
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         # Create CSV line
-        csv_line = f"{timestamp},{data['temperature']},{data['pressure']},{data['humidity']},{data['illuminance']},{data['wind_speed']},{data['rain_mm']},{data['sky_temp']},{data['box_temp']},{1 if data['is_raining'] else 0},{data['rain_analog']},{data['pm1_0']},{data['pm2_5']},{data['pm10']}\n"
+        csv_line = f"{timestamp},{data['temperature']},{data['pressure']},{data['humidity']},{data['illuminance']},{data['wind_speed']},{data['rain_mm']},{data['sky_temp']},{data['box_temp']},{1 if data['is_raining'] else 0},{data['rain_analog']},{data['pm1_0']},{data['pm2_5']},{data['pm10']},{data['uv_index']}\n"
         
         # Append to file
         with open(filename, 'a') as f:
@@ -521,7 +527,7 @@ def readline(port_name, timestamp=True):
 def main():
     """Main function for weather station data receiver."""
     print("Weather Station Data Receiver")
-    print("Version 2.1")
+    print("Version 2.2")
     print("=" * 50)
     
     # Load configuration
@@ -585,8 +591,9 @@ def main():
             pm1_0 = physical_data['pm1_0']
             pm2_5 = physical_data['pm2_5']
             pm10 = physical_data['pm10']
+            uv_index = physical_data['uv_index']
             
-            print(f"[DATA] Timestamp: {timestamp}, Temp: {temperature}°C, Pressure: {pressure} hPa, Humidity: {humidity}%, Light: {illuminance} lux, Wind: {wind_speed} rev, Rain: {rain} mm (collector), Sky: {sky_temp}°C, Box: {box_temp}°C, Raining: {'YES' if is_raining else 'NO'}, Analog: {rain_analog}, PM1.0: {pm1_0} PM2.5: {pm2_5} PM10: {pm10} ug/m3, Packet: {packet_number}")
+            print(f"[DATA] Timestamp: {timestamp}, Temp: {temperature}°C, Pressure: {pressure} hPa, Humidity: {humidity}%, Light: {illuminance} lux, Wind: {wind_speed} rev, Rain: {rain} mm (collector), Sky: {sky_temp}°C, Box: {box_temp}°C, Raining: {'YES' if is_raining else 'NO'}, Analog: {rain_analog}, PM1.0: {pm1_0} PM2.5: {pm2_5} PM10: {pm10} ug/m3, UV Index: {uv_index}, Packet: {packet_number}")
             
             # Prepare data for upload
             jd = Time(datetime.now(timezone.utc)).jd
@@ -606,6 +613,7 @@ def main():
                 'pm1_0'       : pm1_0,
                 'pm2_5'       : pm2_5,
                 'pm10'        : pm10,
+                'uv_index'    : uv_index,
                 'packet_number': packet_number
             }
 
