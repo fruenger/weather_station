@@ -338,6 +338,7 @@ htmlcov/
 *.pwd
 secrets.txt
 passwords.txt
+code/weather_station_r4_wifi/secrets.h
 
 # =============================================================================
 # LOGS

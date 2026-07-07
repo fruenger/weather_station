@@ -11,6 +11,14 @@ This weather station consists of two main components:
 
 The system uses nRF24L01 radio modules for wireless communication and supports real-time monitoring of temperature, humidity, pressure, light levels, wind speed, rainfall, and air quality.
 
+### Arduino UNO R4 WiFi (all-in-one alternative)
+
+An optional **single-board** setup uploads directly to the Django API over WiFi — no nRF24, no receiver Arduino, and no `receive.py` on a PC. See:
+
+- Sketch: `code/weather_station_r4_wifi/weather_station_r4_wifi.ino`
+- Setup guide: `code/weather_station_r4_wifi/README.md`
+- Wiring: `wiring/pin_connections_r4_wifi.txt`
+
 ## Hardware Components
 
 ### Sensors
@@ -203,11 +211,14 @@ Upload endpoint: `POST …/weather_api/datasets/` with HTTP Basic Auth (see `wea
 ```
 weather_station/
 ├── code/
-│   ├── weather_station/             # Main sender code
+│   ├── weather_station/             # Classic sender (nRF24)
+│   ├── weather_station_r4_wifi/     # All-in-one R4 WiFi → HTTPS API
 │   ├── receive/                     # Receiver and processing
 │   ├── sensor_tests/                # Sensor tests
 │   └── ...                          # 
 ├── wiring                           # Wiring & circuit diagrams
+│   ├── pin_connections.txt          # Classic two-Arduino setup
+│   └── pin_connections_r4_wifi.txt  # UNO R4 WiFi setup
 ├── LICENSE                          # License 
 └── README.md                        # This file
 ```

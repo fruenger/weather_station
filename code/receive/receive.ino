@@ -1,19 +1,19 @@
 // Weather Station - Receiver Arduino
-// Version: 2.2 (Updated for DFRobot SEN0636 UV Index Sensor)
+// Version: 2.2.1 (RF24 config aligned with sender)
 // Features: Receives data from sender and forwards via serial to Python script
 // Data Format: 16 int16_t values (32 bytes) with scaled integers
-// I2C Multiplexer: TCA9548A for better sensor organization
 
 //Include Libraries
 #include <SPI.h>
 #include <nRF24L01.h>
 #include <RF24.h>
 
-//create an RF24 object
-RF24 radio(9, 8);  // CE, CSN
+#define RADIO_CE_PIN 9
+#define RADIO_CSN_PIN 8
+#define RADIO_CHANNEL 76
+static const uint8_t RF_ADDRESS[5] = {'9', '9', '9', '9', '9'};
 
-//address through which two modules communicate.
-const byte address[6] = "99999";
+RF24 radio(RADIO_CE_PIN, RADIO_CSN_PIN);
 
 const byte length = 16;  // 16 int16_t values (32 bytes - nRF24L01 limit)
 
@@ -28,29 +28,41 @@ static unsigned long lastPacketMs = 0;
 
 void setup()
 {
-  while (!Serial);
   Serial.begin(9600);
-  
-  radio.begin();
+  while (!Serial) {
+    ;
+  }
 
-  // Configure radio to match transmitter settings and reduce false positives
-  radio.setChannel(76);            // must match sender
-  radio.setPayloadSize(32);        // fixed 32 bytes payload
-  radio.setCRCLength(RF24_CRC_16); // robust CRC
-  radio.setAutoAck(true);          // use auto-ack
-  radio.setRetries(3, 15);         // retries similar to sender
-  radio.setPALevel(RF24_PA_HIGH);  // adequate power level
+  if (!radio.begin()) {
+    Serial.println(F("ERROR: RF24 radio begin() failed!"));
+    while (true) {
+      delay(1000);
+    }
+  }
 
-  // Set the address and start listening
-  radio.openReadingPipe(0, address);
-  radio.flush_rx();                // clear any stale data
+  // Must match sender (weather_station.ino initializeRadio) exactly
+  radio.setAddressWidth(5);
+  radio.setDataRate(RF24_1MBPS);
+  radio.setChannel(RADIO_CHANNEL);
+  radio.setPayloadSize(32);
+  radio.setCRCLength(RF24_CRC_16);
+  radio.setAutoAck(true);
+  radio.setPALevel(RF24_PA_HIGH);
+
+  radio.openReadingPipe(0, RF_ADDRESS);
+  radio.flush_rx();
   radio.flush_tx();
   radio.startListening();
 
   delay(500);
-  
+
   Serial.println(F("Weather Station Receiver Starting..."));
-  Serial.println(F("Version 2.2"));
+  Serial.println(F("Version 2.2.1"));
+  if (radio.isChipConnected()) {
+    Serial.println(F("RF24 chip detected, listening on channel 76"));
+  } else {
+    Serial.println(F("WARNING: RF24 chip not detected — check CE/CSN wiring and 3.3V power"));
+  }
 }
 
 // Helper: modulo-65536 increment check

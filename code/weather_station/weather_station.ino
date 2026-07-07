@@ -1,5 +1,5 @@
 // Weather Station - Sender Arduino
-// Version: 2.2 (Updated with DFRobot SEN0636 UV Index Sensor)
+// Version: 2.2.1 (Serial debug gated for field power without USB)
 // Features: BME280, MLX90614, TSL2591, PMSA003I, SEN0636 UV, Rain Sensors, Anemometer, nRF24L01
 // Data Format: 16 int16_t values (32 bytes) with scaled integers for efficiency
 // I2C Multiplexer: TCA9548A for better sensor organization
@@ -19,6 +19,18 @@
 #include <SPI.h>              // SPI communication for nRF24L01
 #include <nRF24L01.h>         // nRF24L01 radio module
 #include <RF24.h>             // RF24 library
+
+// Set to 1 only when debugging over USB Serial Monitor.
+// When 0, no Serial output in loop — required for standalone power (no USB reader).
+#define SERIAL_DEBUG 0
+
+#if SERIAL_DEBUG
+#define DBG_PRINT(...) Serial.print(__VA_ARGS__)
+#define DBG_PRINTLN(...) Serial.println(__VA_ARGS__)
+#else
+#define DBG_PRINT(...) ((void)0)
+#define DBG_PRINTLN(...) ((void)0)
+#endif
 
 // Configuration Constants
 #define WIND_MEASUREMENT_TIME 1000     // Wind measurement duration (ms)
@@ -103,13 +115,18 @@ void setup() {
   pinMode(RESET_PIN, OUTPUT);
   digitalWrite(RESET_PIN, HIGH);
 
-  // Initialize serial communication
+  // Initialize serial communication (optional; loop output only when SERIAL_DEBUG)
   Serial.begin(9600);
-  while (!Serial) {
-    ; // Wait for serial connection
+#if SERIAL_DEBUG
+  {
+    unsigned long serialWaitStart = millis();
+    while (!Serial && (millis() - serialWaitStart < 3000UL)) {
+      ;
+    }
   }
-  Serial.println(F("Weather Station Sender Starting..."));
-  Serial.println(F("Version 2.2"));
+#endif
+  DBG_PRINTLN(F("Weather Station Sender Starting..."));
+  DBG_PRINTLN(F("Version 2.2.1"));
 
   // Initialize rain drop sensor pins
   pinMode(RAIN_REED_PIN, INPUT);
@@ -128,7 +145,7 @@ void setup() {
   // Initialize nRF24L01 radio
   initializeRadio();
 
-  Serial.println(F("Weather Station initialization complete!"));
+  DBG_PRINTLN(F("Weather Station initialization complete!"));
 }
 
 // Initialize I2C multiplexer
@@ -138,9 +155,9 @@ void initializeI2CMultiplexer() {
   // Test multiplexer communication
   Wire.beginTransmission(TCA9548A_ADDRESS);
   if (Wire.endTransmission() == 0) {
-    Serial.println(F("I2C Multiplexer (TCA9548A) initialized successfully"));
+    DBG_PRINTLN(F("I2C Multiplexer (TCA9548A) initialized successfully"));
   } else {
-    Serial.println(F("ERROR: I2C Multiplexer (TCA9548A) not found!"));
+    DBG_PRINTLN(F("ERROR: I2C Multiplexer (TCA9548A) not found!"));
   }
 }
 
@@ -159,13 +176,13 @@ void initializeBME280() {
   unsigned status = bme.begin(0x76);
   
   if (!status) {
-    Serial.println(F("Could not find a valid BME280 sensor, check wiring, address, sensor ID!"));
-    Serial.print(F("SensorID was: 0x")); Serial.println(bme.sensorID(), 16);
-    Serial.println(F("Using default values for BME280 sensor data"));
+    DBG_PRINTLN(F("Could not find a valid BME280 sensor, check wiring, address, sensor ID!"));
+    DBG_PRINT(F("SensorID was: 0x")); DBG_PRINTLN(bme.sensorID(), 16);
+    DBG_PRINTLN(F("Using default values for BME280 sensor data"));
     bme_sensor_available = false;
   } else {
     bme_sensor_available = true;
-    Serial.println(F("BME280 sensor initialized successfully (Channel 1)"));
+    DBG_PRINTLN(F("BME280 sensor initialized successfully (Channel 1)"));
   }
 }
 
@@ -175,12 +192,12 @@ void initializeMLX90614() {
   
   if (mlx.begin()) {
     mlx_sensor_available = true;
-    Serial.println(F("MLX90614 infrared temperature sensor initialized successfully (Channel 3)"));
-    Serial.print(F("Emissivity = ")); Serial.println(mlx.readEmissivity());
+    DBG_PRINTLN(F("MLX90614 infrared temperature sensor initialized successfully (Channel 3)"));
+    DBG_PRINT(F("Emissivity = ")); DBG_PRINTLN(mlx.readEmissivity());
   } else {
     mlx_sensor_available = false;
-    Serial.println(F("Could not find a valid MLX90614 sensor, check wiring!"));
-    Serial.println(F("Using default values for MLX90614 sensor data"));
+    DBG_PRINTLN(F("Could not find a valid MLX90614 sensor, check wiring!"));
+    DBG_PRINTLN(F("Using default values for MLX90614 sensor data"));
   }
 }
 
@@ -191,10 +208,10 @@ void initializeTSL2591() {
   DEV_ModuleInit();
   if (TSL2591_Init() == 0) {
     light_sensor_available = true;
-    Serial.println(F("TSL2591 light sensor initialized successfully (Channel 4)"));
+    DBG_PRINTLN(F("TSL2591 light sensor initialized successfully (Channel 4)"));
   } else {
     light_sensor_available = false;
-    Serial.println(F("Could not initialize TSL2591 light sensor, using default values"));
+    DBG_PRINTLN(F("Could not initialize TSL2591 light sensor, using default values"));
   }
 }
 
@@ -204,8 +221,8 @@ void initializePMSA003I() {
   digitalWrite(PMSA003I_SET_PIN, LOW); // Start in sleep mode to save power
   pmsa003i_sensor_available = false;
   pmsa003i_awake = false;
-  Serial.println(F("PMSA003I configured (sleep mode, SET pin on D6)"));
-  Serial.println(F("PM measurements every 5 minutes with 30s warm-up"));
+  DBG_PRINTLN(F("PMSA003I configured (sleep mode, SET pin on D6)"));
+  DBG_PRINTLN(F("PM measurements every 5 minutes with 30s warm-up"));
 }
 
 void wakePMSA003I() {
@@ -229,20 +246,20 @@ void initializeUVSensor() {
 
   while (uvSensor.begin() != true && attempts < maxAttempts) {
     attempts++;
-    Serial.print(F("UV sensor init attempt "));
-    Serial.print(attempts);
-    Serial.print(F("/"));
-    Serial.print(maxAttempts);
-    Serial.println(F(" failed"));
+    DBG_PRINT(F("UV sensor init attempt "));
+    DBG_PRINT(attempts);
+    DBG_PRINT(F("/"));
+    DBG_PRINT(maxAttempts);
+    DBG_PRINTLN(F(" failed"));
     delay(1000);
   }
 
   if (attempts >= maxAttempts) {
     uv_sensor_available = false;
-    Serial.println(F("SEN0636 UV sensor init failed — check I2C wiring and mode switch"));
+    DBG_PRINTLN(F("SEN0636 UV sensor init failed — check I2C wiring and mode switch"));
   } else {
     uv_sensor_available = true;
-    Serial.println(F("SEN0636 UV sensor initialized successfully (Channel 2)"));
+    DBG_PRINTLN(F("SEN0636 UV sensor initialized successfully (Channel 2)"));
   }
 }
 
@@ -257,16 +274,20 @@ void initializeRadio() {
     radio.setPayloadSize(32);
     radio.setChannel(RADIO_CHANNEL);
     radio.setPALevel(RF24_PA_HIGH);
+    radio.setRetries(5, 15);
 
     radio.openWritingPipe(RF_ADDRESS); // 5-byte address
     radio.flush_tx();
     radio.stopListening();
     
     radio_available = true;
-    Serial.println(F("RF24 radio initialized successfully"));
+    DBG_PRINTLN(F("RF24 radio initialized successfully"));
+    if (!radio.isChipConnected()) {
+      DBG_PRINTLN(F("WARNING: RF24 chip not detected — check CE/CSN wiring and 3.3V power"));
+    }
   } else {
     radio_available = false;
-    Serial.println(F("Could not initialize RF24 radio, data transmission disabled"));
+    DBG_PRINTLN(F("Could not initialize RF24 radio, data transmission disabled"));
   }
 }
 
@@ -384,7 +405,7 @@ void readPMSA003IData() {
 
   if (!pmsa003i_awake) {
     if (now - last_pm_measurement >= PM_MEASUREMENT_INTERVAL) {
-      Serial.println(F("PMSA003I: waking sensor for measurement"));
+      DBG_PRINTLN(F("PMSA003I: waking sensor for measurement"));
       wakePMSA003I();
     }
     return;
@@ -397,9 +418,9 @@ void readPMSA003IData() {
     selectI2CChannel(TCA_CHANNEL_0);
     if (aqi.begin_I2C()) {
       pmsa003i_sensor_available = true;
-      Serial.println(F("PMSA003I initialized successfully (Channel 0)"));
+      DBG_PRINTLN(F("PMSA003I initialized successfully (Channel 0)"));
     } else {
-      Serial.println(F("PMSA003I I2C init failed, will retry next cycle"));
+      DBG_PRINTLN(F("PMSA003I I2C init failed, will retry next cycle"));
       sleepPMSA003I();
       last_pm_measurement = now;
       return;
@@ -421,12 +442,12 @@ void readPMSA003IData() {
     results[13] = last_pm2_5;
     results[14] = last_pm10;
 
-    Serial.print(F("PMSA003I - PM1.0: "));
-    Serial.print(last_pm1_0);
-    Serial.print(F(" PM2.5: "));
-    Serial.print(last_pm2_5);
-    Serial.print(F(" PM10: "));
-    Serial.println(last_pm10);
+    DBG_PRINT(F("PMSA003I - PM1.0: "));
+    DBG_PRINT(last_pm1_0);
+    DBG_PRINT(F(" PM2.5: "));
+    DBG_PRINT(last_pm2_5);
+    DBG_PRINT(F(" PM10: "));
+    DBG_PRINTLN(last_pm10);
 
     sleepPMSA003I();
     last_pm_measurement = now;
@@ -463,8 +484,8 @@ void readRainReedData() {
       accumulated_rain_tips++;
       rain_data_pending = true;
       
-      Serial.print(F("Rain tip detected! Accumulated: "));
-      Serial.println(accumulated_rain_tips);
+      DBG_PRINT(F("Rain tip detected! Accumulated: "));
+      DBG_PRINTLN(accumulated_rain_tips);
       lastState = currentState;
       lastChanged = millis();
     }
@@ -513,29 +534,29 @@ void transmitData() {
       
       // Clear accumulated rain data if transmission successful
       if (rain_data_pending) {
-        Serial.print(F("Rain tips successfully transmitted: "));
-        Serial.print(accumulated_rain_tips);
-        Serial.println(F(" tips"));
+        DBG_PRINT(F("Rain tips successfully transmitted: "));
+        DBG_PRINT(accumulated_rain_tips);
+        DBG_PRINTLN(F(" tips"));
         accumulated_rain_tips = 0;
         rain_data_pending = false;
       }
       
-      Serial.print(F("Packet "));
-      Serial.print(packetNumber);
-      Serial.print(F(" transmitted successfully in "));
-      Serial.print(transmissionTime);
-      Serial.println(F(" ms"));
+      DBG_PRINT(F("Packet "));
+      DBG_PRINT(packetNumber);
+      DBG_PRINT(F(" transmitted successfully in "));
+      DBG_PRINT(transmissionTime);
+      DBG_PRINTLN(F(" ms"));
     } else {
       failedTransmissions++;
-      Serial.print(F("Failed to transmit packet "));
-      Serial.print(packetNumber);
-      Serial.println(F(" after 3 retries"));
+      DBG_PRINT(F("Failed to transmit packet "));
+      DBG_PRINT(packetNumber);
+      DBG_PRINTLN(F(" after 3 retries"));
       
       // Keep rain data accumulated if transmission failed
       if (rain_data_pending) {
-        Serial.print(F("Rain tips preserved for next transmission. Total accumulated: "));
-        Serial.print(accumulated_rain_tips);
-        Serial.println(F(" tips"));
+        DBG_PRINT(F("Rain tips preserved for next transmission. Total accumulated: "));
+        DBG_PRINT(accumulated_rain_tips);
+        DBG_PRINTLN(F(" tips"));
       }
     }
     
@@ -547,70 +568,70 @@ void transmitData() {
       printTransmissionStats();
     }
   } else {
-    Serial.println(F("Radio not available, skipping transmission"));
+    DBG_PRINTLN(F("Radio not available, skipping transmission"));
   }
 }
 
 // Print transmission statistics
 void printTransmissionStats() {
-  Serial.print(F("Transmission stats - Success: "));
-  Serial.print(successfulTransmissions);
-  Serial.print(F(", Failed: "));
-  Serial.print(failedTransmissions);
-  Serial.print(F(", Success rate: "));
-  Serial.print((float)successfulTransmissions / (successfulTransmissions + failedTransmissions) * 100);
-  Serial.println(F("%"));
+  DBG_PRINT(F("Transmission stats - Success: "));
+  DBG_PRINT(successfulTransmissions);
+  DBG_PRINT(F(", Failed: "));
+  DBG_PRINT(failedTransmissions);
+  DBG_PRINT(F(", Success rate: "));
+  DBG_PRINT((float)successfulTransmissions / (successfulTransmissions + failedTransmissions) * 100);
+  DBG_PRINTLN(F("%"));
   
   // Show pending rain data
   if (rain_data_pending) {
-    Serial.print(F("Pending rain tips: "));
-    Serial.print(accumulated_rain_tips);
-    Serial.println(F(" tips"));
+    DBG_PRINT(F("Pending rain tips: "));
+    DBG_PRINT(accumulated_rain_tips);
+    DBG_PRINTLN(F(" tips"));
   }
 }
 
 // Print debug information
 void printDebugInfo() {
   // Print scaled values
-  Serial.print(F("Scaled values: "));
+  DBG_PRINT(F("Scaled values: "));
   for (int i = 0; i < 16; i++) {
-    Serial.print(results[i]);
-    Serial.print(F(" "));
+    DBG_PRINT(results[i]);
+    DBG_PRINT(F(" "));
   }
-  Serial.println();
+  DBG_PRINTLN();
   
   // Print rain detection debug info
   int rainDropAnalogVal = analogRead(RAIN_DROP_ANALOG_PIN);
   int rainDropDigitalVal = digitalRead(RAIN_DROP_DIGITAL_PIN);
   bool isRaining = (results[10] == 1);
   
-  Serial.print(F("Rain Detection - Digital: "));
-  Serial.print(rainDropDigitalVal);
-  Serial.print(F(", Analog: "));
-  Serial.print(rainDropAnalogVal);
-  Serial.print(F(", Is Raining: "));
-  Serial.println(isRaining ? F("YES") : F("NO"));
+  DBG_PRINT(F("Rain Detection - Digital: "));
+  DBG_PRINT(rainDropDigitalVal);
+  DBG_PRINT(F(", Analog: "));
+  DBG_PRINT(rainDropAnalogVal);
+  DBG_PRINT(F(", Is Raining: "));
+  DBG_PRINTLN(isRaining ? F("YES") : F("NO"));
   
   // Print particulate matter debug info
   if (last_pm2_5 > 0) {
-    Serial.print(F("Particulate Matter - PM1.0: "));
-    Serial.print(results[12]);
-    Serial.print(F(" PM2.5: "));
-    Serial.print(results[13]);
-    Serial.print(F(" PM10: "));
-    Serial.println(results[14]);
+    DBG_PRINT(F("Particulate Matter - PM1.0: "));
+    DBG_PRINT(results[12]);
+    DBG_PRINT(F(" PM2.5: "));
+    DBG_PRINT(results[13]);
+    DBG_PRINT(F(" PM10: "));
+    DBG_PRINTLN(results[14]);
   }
 
   if (last_uv_index > 0) {
-    Serial.print(F("UV Index: "));
-    Serial.println(results[15]);
+    DBG_PRINT(F("UV Index: "));
+    DBG_PRINTLN(results[15]);
   }
 }
 
 // Check for auto-reset condition
 void checkAutoReset() {
   if (millis() > RESET_INTERVAL) {
-    Serial.println(F("Auto-reset triggered"));
+    DBG_PRINTLN(F("Auto-reset triggered"));
     digitalWrite(RESET_PIN, LOW);
   }
 }

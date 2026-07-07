@@ -1,0 +1,122 @@
+OST Weather Station — Pin Connections (Arduino UNO R4 WiFi)
+Version: 1.0
+Date: 2026-07-07
+
+This document describes the R4 WiFi all-in-one setup. Sensor wiring is identical
+to the classic sender (weather_station.ino). The nRF24L01 radio is NOT used.
+
+================================================================================
+BOARD
+================================================================================
+
+Arduino UNO R4 WiFi
+  VIN   6–24 V DC (solar/battery via regulator) OR USB 5 V for bench testing
+  5V    Sensor power rail (BME280, MLX90614, TSL2591, PMSA003I, SEN0636, etc.)
+  3.3V  Not used for nRF24 (module removed); some breakouts may use 3.3 V
+  GND   Common ground for all components
+
+WiFi: onboard ESP32-S3, 2.4 GHz — no external antenna connector on standard board
+
+================================================================================
+I2C BUS (TCA9548A MULTIPLEXER)
+================================================================================
+
+Arduino          TCA9548A
+-------          --------
+A4 (SDA)    -->  SDA
+A5 (SCL)    -->  SCL
+5V          -->  VCC
+GND         -->  GND
+
+TCA9548A address: 0x70
+
+Multiplexer channels (same as classic sender):
+  Ch0 (0x01)  PMSA003I particulate matter (I2C 0x12)
+  Ch1 (0x02)  BME280 environmental sensor (I2C 0x76)
+  Ch2 (0x04)  SEN0636 UV index (I2C 0x23), mode switch on I2C
+  Ch3 (0x08)  MLX90614 IR temperature (I2C 0x5A)
+  Ch4 (0x10)  TSL2591 light sensor (I2C 0x29)
+
+================================================================================
+DIGITAL / ANALOG PINS
+================================================================================
+
+Pin     Function                          Notes
+----    --------                          -----
+D2      Rain reed switch (tipping bucket) INPUT, pull-up via module
+D3      Anemometer pulse                  INPUT, interrupt RISING
+D4      Watchdog reset output             OUTPUT (external watchdog, optional)
+D5      Rain drop sensor (digital)        INPUT
+D6      PMSA003I SET pin                  OUTPUT: LOW=sleep, HIGH=active
+A1      Rain drop sensor (analog)         0–1023 (12-bit ADC on R4)
+
+Pins NO LONGER USED (were nRF24L01):
+  D8  CSN
+  D9  CE
+  D10 MOSI
+  D11 MISO
+  D12 SCK
+
+================================================================================
+SENSOR-SPECIFIC NOTES
+================================================================================
+
+PMSA003I
+  I2C via mux ch0, SET on D6
+  Sleep between 5-minute measurement cycles (~60–120 mA when active)
+
+SEN0636 UV
+  I2C via mux ch2, hardware switch must be in I2C position
+
+BME280
+  Can share mux ch1; address 0x76
+
+Rain gauge
+  Reed switch debounced in firmware (250 ms)
+
+Anemometer
+  1 s counting window per measurement cycle
+
+================================================================================
+POWER BUDGET (APPROXIMATE)
+================================================================================
+
+Component              Active        Sleep/idle
+---------              ------        ------------
+UNO R4 WiFi board      50–80 mA      30–50 mA
+WiFi transmit peak     +100–150 mA   0 (disconnected between uploads)
+PMSA003I               60–120 mA     <1 mA (SET=LOW)
+Other I2C sensors      ~10–20 mA     ~10 mA
+
+Recommend: regulator ≥ 500 mA, bulk capacitor on 5 V rail, local 100 nF per IC.
+
+================================================================================
+NETWORK
+================================================================================
+
+No wired USB data path required in production.
+
+WiFi credentials and API password: secrets.h (copy from secrets.h.example)
+
+Upload target:
+  HTTPS POST /weather_station/weather_api/datasets/
+  HTTP Basic Auth (dedicated Django user, not admin)
+
+Observatory must provide 2.4 GHz WiFi with internet access for HTTPS + NTP.
+
+================================================================================
+DIFFERENCES FROM CLASSIC TWO-ARDUINO SETUP
+================================================================================
+
+Removed:
+  - 2× nRF24L01 module
+  - Receiver Arduino
+  - USB cable to upload PC
+  - receive.py process
+
+Added:
+  - Arduino UNO R4 WiFi
+  - secrets.h (WiFi + API credentials)
+  - Observatory WiFi coverage at installation site
+
+Sensor harness: plug-compatible with classic sender pinout.

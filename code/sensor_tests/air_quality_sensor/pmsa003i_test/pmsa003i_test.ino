@@ -54,7 +54,7 @@ void setup() {
   // Sensor needs a few seconds after power-on before I2C communication
   Serial.println(F("Waiting for sensor boot-up..."));
   delay(3000);
-
+  
   // Initialize sensor over I2C
   while (!aqi.begin_I2C()) {
     Serial.println(F("failed to init chip, please check the chip connection"));
