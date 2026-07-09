@@ -1,13 +1,10 @@
 /*
  * Weather Station - Arduino UNO R4 WiFi
- * Version: 1.1.0
+ * Version: 1.4.0
  *
- * All-in-one outdoor station: sensors + direct HTTPS upload to the OST Django API.
- * Values are stored in physical units (no int16 scaling — that was for the 32-byte nRF24 payload).
- *
- * Board: Arduino UNO R4 WiFi (Renesas RA4M1 + ESP32-S3 WiFi coprocessor)
- * Sensors: BME280, MLX90614, TSL2591, PMSA003I, SEN0636, rain, anemometer
- * I2C: TCA9548A multiplexer on Wire (SDA=A4, SCL=A5)
+ * Cooperative scheduler: each sensor at its own interval (<= 2 Hz).
+ * Ring-buffer snapshot every 500 ms with last-known values for slower sensors.
+ * Raw 500 ms wind samples; rolling mean / gusts deferred to server (see TODO.md).
  */
 
 #include <Wire.h>
@@ -21,6 +18,7 @@
 #include <Adafruit_MLX90614.h>
 #include <Adafruit_PM25AQI.h>
 #include <DFRobot_UVIndex240370Sensor.h>
+#include "Arduino_LED_Matrix.h"
 
 #include "secrets.h"
 
@@ -29,7 +27,22 @@
 #endif
 
 #define SERIAL_DEBUG 0
-#define WIFI_DISCONNECT_AFTER_UPLOAD 1
+#define DISABLE_LED_MATRIX 1
+
+// Snapshot + per-sensor intervals (all <= 2 Hz)
+const unsigned long SNAPSHOT_INTERVAL_MS = 500UL;   // ring buffer / wind window: 2 Hz
+const unsigned long INTERVAL_BME_MS = 500UL;      // 2 Hz — T, RH, P
+const unsigned long INTERVAL_LUX_MS = 1000UL;       // 1 Hz — TSL2591 integration
+const unsigned long INTERVAL_MLX_MS = 2000UL;       // 0.5 Hz — IR slow
+const unsigned long INTERVAL_UV_MS = 1000UL;        // 1 Hz
+const unsigned long INTERVAL_RAIN_MS = 500UL;       // 2 Hz — reed + drop digital
+const unsigned long LIVE_UPLOAD_INTERVAL_MS = 1000UL;
+
+// Upload strategy
+const unsigned long STARTUP_LIVE_UPLOAD_MS = 300000UL;
+const unsigned long UPLOAD_BURST_INTERVAL_MS = 60000UL;
+// 60 s burst at 2 Hz = 120 samples; +10 spare (old 75 was only enough for 1 Hz)
+const uint16_t RING_BUFFER_SIZE = 130;
 
 const unsigned long WIFI_CONNECT_TIMEOUT_MS = 20000UL;
 const unsigned long HTTP_RESPONSE_TIMEOUT_MS = 15000UL;
@@ -43,7 +56,6 @@ const uint16_t API_PORT = 443;
 #define DBG_PRINTLN(...) ((void)0)
 #endif
 
-#define WIND_MEASUREMENT_TIME 1000
 #define RESET_INTERVAL 3600000UL
 #define RAIN_MM_PER_TIP 1.25f
 
@@ -65,24 +77,28 @@ const unsigned long PM_WARMUP_TIME = 30000UL;
 #define TCA_CHANNEL_3 0x08
 #define TCA_CHANNEL_4 0x10
 
-// Physical units — matches Django DatasetSerializer / receive.py upload fields
 struct Measurement {
   uint32_t cycle;
-  float temperature;      // °C
-  float pressure;         // hPa
-  float humidity;         // %
-  float illuminance;      // lux
-  uint16_t rain_tips;     // tipping-bucket count since last successful upload
-  uint16_t wind_revolutions;
+  float temperature;
+  float pressure;
+  float humidity;
+  float illuminance;
+  uint16_t rain_tips;     // tips in this sample interval (500 ms)
+  uint16_t wind_revolutions; // pulses in this sample interval (500 ms window)
   uint32_t packet_number;
-  float sky_temp;         // °C
-  float box_temp;         // °C
+  float sky_temp;
+  float box_temp;
   bool is_raining;
-  uint16_t rain_analog;   // debug only, not uploaded
-  uint16_t pm1_0;         // µg/m³
+  uint16_t rain_analog;
+  uint16_t pm1_0;
   uint16_t pm2_5;
   uint16_t pm10;
   uint16_t uv_index;
+};
+
+struct BufferedSample {
+  Measurement m;
+  double jd;
 };
 
 Adafruit_BME280 bme;
@@ -91,7 +107,14 @@ Adafruit_PM25AQI aqi;
 DFRobot_UVIndex240370Sensor uvSensor(&Wire);
 WiFiSSLClient sslClient;
 
+#if DISABLE_LED_MATRIX
+ArduinoLEDMatrix ledMatrix;
+static const uint32_t ledMatrixBlankFrame[] = {0, 0, 0};
+#endif
+
 Measurement sample;
+BufferedSample ringBuffer[RING_BUFFER_SIZE];
+uint16_t ringCount = 0;
 
 bool bme_sensor_available = false;
 bool mlx_sensor_available = false;
@@ -108,18 +131,34 @@ uint16_t last_pm2_5 = 0;
 uint16_t last_pm10 = 0;
 uint16_t last_uv_index = 0;
 
-int InterruptCounter = 0;
+volatile uint32_t windPulseTotal = 0;
+uint32_t windPulseLastSnap = 0;
 
 bool firstLoop = true;
 bool lastState = false;
 unsigned long lastChanged = 0;
-uint16_t accumulated_rain_tips = 0;
-bool rain_data_pending = false;
+uint16_t rainTipsThisCycle = 0;
 
 uint32_t packetNumber = 0;
 uint32_t measureCycle = 0;
 uint16_t successfulUploads = 0;
 uint16_t failedUploads = 0;
+
+unsigned long bootMillis = 0;
+unsigned long lastBurstUploadMs = 0;
+unsigned long lastLiveUploadMs = 0;
+unsigned long lastSnapshotMs = 0;
+unsigned long lastBmeMs = 0;
+unsigned long lastLuxMs = 0;
+unsigned long lastMlxMs = 0;
+unsigned long lastUvMs = 0;
+unsigned long lastRainMs = 0;
+unsigned long lastDebugMs = 0;
+bool uploadSessionOpen = false;
+bool startupLiveModeAnnounced = false;
+bool burstModeAnnounced = false;
+bool authHeaderReady = false;
+char authB64[140];
 
 bool timeSynced = false;
 unsigned long epochAtSync = 0;
@@ -152,22 +191,36 @@ static void base64Encode(const char *input, char *output, size_t outputSize) {
   output[outIdx] = '\0';
 }
 
+static void prepareAuthHeader() {
+  if (authHeaderReady) {
+    return;
+  }
+  char credentials[96];
+  snprintf(credentials, sizeof(credentials), "%s:%s", SECRET_API_USER, SECRET_API_PASS);
+  base64Encode(credentials, authB64, sizeof(authB64));
+  authHeaderReady = true;
+}
+
 static double julianDateFromUnix(unsigned long unixUtc) {
   return 2440587.5 + ((double)unixUtc / 86400.0);
 }
 
-static double currentJulianDate() {
+static double jdAtMillis(unsigned long captureMs) {
   if (!timeSynced) {
     return 0.0;
   }
-  unsigned long elapsedSec = (millis() - millisAtSync) / 1000UL;
+  unsigned long elapsedSec = (captureMs - millisAtSync) / 1000UL;
   return julianDateFromUnix(epochAtSync + elapsedSec);
 }
 
+static double currentJulianDate() {
+  return jdAtMillis(millis());
+}
+
 static bool syncTimeFromNtp() {
-  unsigned long epoch = 0;
   for (uint8_t attempt = 0; attempt < 20; attempt++) {
-    if (WiFi.getTime(epoch) == 0 && epoch > 1000000000UL) {
+    unsigned long epoch = WiFi.getTime();
+    if (epoch > 1000000000UL) {
       epochAtSync = epoch;
       millisAtSync = millis();
       timeSynced = true;
@@ -181,8 +234,11 @@ static bool syncTimeFromNtp() {
   return false;
 }
 
-static bool connectWiFi() {
+static bool connectWiFi(bool requestNtpSync) {
   if (WiFi.status() == WL_CONNECTED) {
+    if (requestNtpSync && !timeSynced) {
+      syncTimeFromNtp();
+    }
     return true;
   }
 
@@ -206,22 +262,22 @@ static bool connectWiFi() {
 
   DBG_PRINT(F("WiFi connected, IP: "));
   DBG_PRINTLN(WiFi.localIP());
-  syncTimeFromNtp();
+
+  if (requestNtpSync) {
+    syncTimeFromNtp();
+  }
   return true;
 }
 
 static void disconnectWiFi() {
-#if WIFI_DISCONNECT_AFTER_UPLOAD
   WiFi.disconnect();
   DBG_PRINTLN(F("WiFi disconnected (power save)"));
-#endif
 }
 
 static bool inRange(float value, float minValue, float maxValue) {
   return value >= minValue && value <= maxValue;
 }
 
-// Ranges aligned with datasets/api/serializers.py (DatasetSerializer)
 static bool validateMeasurement(const Measurement &m) {
   if (!inRange(m.temperature, -50.0f, 60.0f)) return false;
   if (!inRange(m.pressure, 800.0f, 1200.0f)) return false;
@@ -237,6 +293,11 @@ static bool validateMeasurement(const Measurement &m) {
 
 static int buildUploadBody(char *body, size_t bodySize, const Measurement &m, double jd) {
   float rainMm = m.rain_tips * RAIN_MM_PER_TIP;
+  // Raw revolutions in SNAPSHOT_INTERVAL_MS window; server converts to m/s (see TODO.md)
+  float windRaw = (float)m.wind_revolutions;
+  if (windRaw > 500.0f) {
+    windRaw = 500.0f;
+  }
 
   return snprintf(
       body, bodySize,
@@ -244,8 +305,19 @@ static int buildUploadBody(char *body, size_t bodySize, const Measurement &m, do
       "&wind_speed=%.0f&rain=%.2f&sky_temp=%.2f&box_temp=%.2f&is_raining=%d"
       "&pm1_0=%u&pm2_5=%u&pm10=%u&uv_index=%u",
       jd, m.temperature, m.pressure, m.humidity, m.illuminance,
-      (float)m.wind_revolutions, rainMm, m.sky_temp, m.box_temp,
+      windRaw, rainMm, m.sky_temp, m.box_temp,
       m.is_raining ? 1 : 0, m.pm1_0, m.pm2_5, m.pm10, m.uv_index);
+}
+
+static void drainHttpResponse(WiFiSSLClient &client) {
+  unsigned long deadline = millis() + 2000UL;
+  while (client.connected() && millis() < deadline) {
+    while (client.available()) {
+      client.read();
+      deadline = millis() + 2000UL;
+    }
+    delay(1);
+  }
 }
 
 static bool readHttpSuccess(WiFiSSLClient &client) {
@@ -266,11 +338,13 @@ static bool readHttpSuccess(WiFiSSLClient &client) {
               strstr(line, "HTTP/1.1 201") != NULL ||
               strstr(line, "HTTP/2 200") != NULL ||
               strstr(line, "HTTP/2 201") != NULL) {
+            drainHttpResponse(client);
             return true;
           }
           if (strncmp(line, "HTTP/", 5) == 0) {
             DBG_PRINT(F("HTTP response: "));
             DBG_PRINTLN(line);
+            drainHttpResponse(client);
             return false;
           }
         }
@@ -289,19 +363,39 @@ static bool readHttpSuccess(WiFiSSLClient &client) {
   return false;
 }
 
-static bool uploadToApi(const Measurement &m) {
+static bool beginUploadSession(bool requestNtpSync) {
+  prepareAuthHeader();
+  if (!connectWiFi(requestNtpSync)) {
+    return false;
+  }
+  if (!sslClient.connected()) {
+    if (!sslClient.connect(SECRET_API_HOST, API_PORT)) {
+      DBG_PRINTLN(F("SSL connect failed"));
+      disconnectWiFi();
+      return false;
+    }
+  }
+  uploadSessionOpen = true;
+  return true;
+}
+
+static void endUploadSession() {
+  if (uploadSessionOpen) {
+    sslClient.stop();
+    uploadSessionOpen = false;
+  }
+  if (WiFi.status() == WL_CONNECTED) {
+    disconnectWiFi();
+  }
+}
+
+static bool postSample(const Measurement &m, double jd, bool keepAlive) {
   if (!validateMeasurement(m)) {
     DBG_PRINTLN(F("Upload skipped: validation failed"));
     return false;
   }
-
-  double jd = currentJulianDate();
   if (jd <= 0.0) {
-    DBG_PRINTLN(F("Upload skipped: no valid Julian date (NTP failed)"));
-    return false;
-  }
-
-  if (!connectWiFi()) {
+    DBG_PRINTLN(F("Upload skipped: invalid jd"));
     return false;
   }
 
@@ -312,19 +406,12 @@ static bool uploadToApi(const Measurement &m) {
     return false;
   }
 
-  char credentials[96];
-  snprintf(credentials, sizeof(credentials), "%s:%s", SECRET_API_USER, SECRET_API_PASS);
-  char authB64[140];
-  base64Encode(credentials, authB64, sizeof(authB64));
-
-  DBG_PRINT(F("HTTPS POST to "));
-  DBG_PRINT(SECRET_API_HOST);
-  DBG_PRINTLN(SECRET_API_PATH);
-
-  if (!sslClient.connect(SECRET_API_HOST, API_PORT)) {
-    DBG_PRINTLN(F("SSL connect failed — check firmware + host certificate"));
-    disconnectWiFi();
-    return false;
+  if (!sslClient.connected()) {
+    if (!sslClient.connect(SECRET_API_HOST, API_PORT)) {
+      DBG_PRINTLN(F("SSL reconnect failed"));
+      return false;
+    }
+    uploadSessionOpen = true;
   }
 
   sslClient.print(F("POST "));
@@ -335,16 +422,135 @@ static bool uploadToApi(const Measurement &m) {
   sslClient.print(F("Authorization: Basic "));
   sslClient.println(authB64);
   sslClient.println(F("Content-Type: application/x-www-form-urlencoded"));
-  sslClient.println(F("Connection: close"));
+  if (keepAlive) {
+    sslClient.println(F("Connection: keep-alive"));
+  } else {
+    sslClient.println(F("Connection: close"));
+  }
   sslClient.print(F("Content-Length: "));
   sslClient.println(bodyLen);
   sslClient.println();
   sslClient.print(body);
 
-  bool ok = readHttpSuccess(sslClient);
-  sslClient.stop();
-  disconnectWiFi();
+  return readHttpSuccess(sslClient);
+}
+
+static bool isStartupLiveMode() {
+  return (millis() - bootMillis) < STARTUP_LIVE_UPLOAD_MS;
+}
+
+static void pushToRingBuffer(const Measurement &m, double jd) {
+  if (ringCount >= RING_BUFFER_SIZE) {
+    memmove(&ringBuffer[0], &ringBuffer[1], (RING_BUFFER_SIZE - 1) * sizeof(BufferedSample));
+    ringCount = RING_BUFFER_SIZE - 1;
+    DBG_PRINTLN(F("Ring buffer full — dropped oldest sample"));
+  }
+  ringBuffer[ringCount].m = m;
+  ringBuffer[ringCount].jd = jd;
+  ringCount++;
+}
+
+static bool flushRingBuffer() {
+  if (ringCount == 0) {
+    return true;
+  }
+
+  DBG_PRINT(F("Burst upload: "));
+  DBG_PRINT(ringCount);
+  DBG_PRINTLN(F(" samples"));
+
+  if (!beginUploadSession(true)) {
+    return false;
+  }
+
+  uint16_t uploaded = 0;
+  for (uint16_t i = 0; i < ringCount; i++) {
+    bool keepAlive = (i + 1 < ringCount);
+    if (postSample(ringBuffer[i].m, ringBuffer[i].jd, keepAlive)) {
+      uploaded++;
+      successfulUploads++;
+      packetNumber++;
+    } else {
+      failedUploads++;
+      DBG_PRINT(F("Burst failed at index "));
+      DBG_PRINTLN(i);
+      break;
+    }
+  }
+
+  endUploadSession();
+
+  if (uploaded > 0) {
+    uint16_t remaining = ringCount - uploaded;
+    if (remaining > 0) {
+      memmove(&ringBuffer[0], &ringBuffer[uploaded], remaining * sizeof(BufferedSample));
+    }
+    ringCount = remaining;
+    lastBurstUploadMs = millis();
+  }
+
+  return ringCount == 0;
+}
+
+static bool uploadLiveSample(const Measurement &m, double jd) {
+  if (!uploadSessionOpen) {
+    if (!beginUploadSession(true)) {
+      return false;
+    }
+    if (!startupLiveModeAnnounced) {
+      DBG_PRINTLN(F("Upload mode: startup live (1 Hz)"));
+      startupLiveModeAnnounced = true;
+    }
+  }
+
+  double useJd = jd;
+  if (useJd <= 0.0) {
+    useJd = currentJulianDate();
+  }
+
+  bool ok = postSample(m, useJd, true);
+  if (ok) {
+    successfulUploads++;
+    packetNumber++;
+  } else {
+    failedUploads++;
+    endUploadSession();
+  }
   return ok;
+}
+
+static void handleUploads(unsigned long captureMs) {
+  if (!wifi_module_ok) {
+    return;
+  }
+
+  if (isStartupLiveMode()) {
+    if (captureMs - lastLiveUploadMs >= LIVE_UPLOAD_INTERVAL_MS) {
+      uploadLiveSample(sample, jdAtMillis(captureMs));
+      lastLiveUploadMs = captureMs;
+    }
+    return;
+  }
+
+  if (uploadSessionOpen) {
+    endUploadSession();
+    if (!burstModeAnnounced) {
+      DBG_PRINTLN(F("Upload mode: burst (buffered)"));
+      burstModeAnnounced = true;
+    }
+  }
+
+  double jd = jdAtMillis(captureMs);
+  if (jd > 0.0) {
+    pushToRingBuffer(sample, jd);
+  }
+
+  if (ringCount > 0 && (captureMs - lastBurstUploadMs) >= UPLOAD_BURST_INTERVAL_MS) {
+    flushRingBuffer();
+  } else if (ringCount >= (RING_BUFFER_SIZE - 4)) {
+    DBG_PRINTLN(F("Ring buffer nearly full — early burst"));
+    flushRingBuffer();
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -448,6 +654,18 @@ void initializeWiFiModule() {
   WiFi.disconnect();
 }
 
+#if DISABLE_LED_MATRIX
+void disableLedMatrix() {
+  ledMatrix.begin();
+  ledMatrix.loadFrame(ledMatrixBlankFrame);
+  DBG_PRINTLN(F("Onboard LED matrix disabled (blank frame)"));
+}
+#endif
+
+void beginMeasurementCycle() {
+  rainTipsThisCycle = 0;
+}
+
 void readBME280Data() {
   if (bme_sensor_available) {
     selectI2CChannel(TCA_CHANNEL_1);
@@ -481,12 +699,39 @@ void readTSL2591Data() {
   }
 }
 
-void readPMSA003IData() {
+void readUVIndexData() {
+  sample.uv_index = last_uv_index;
+  if (!uv_sensor_available) {
+    return;
+  }
+  selectI2CChannel(TCA_CHANNEL_2);
+  last_uv_index = (uint16_t)uvSensor.readUvIndexData();
+  sample.uv_index = last_uv_index;
+}
+
+void processRainReed() {
+  int reedState = digitalRead(RAIN_REED_PIN);
+  if (firstLoop) {
+    lastState = reedState;
+    firstLoop = false;
+  }
+  if (reedState != lastState && (millis() - lastChanged) > 250) {
+    rainTipsThisCycle++;
+    lastState = reedState;
+    lastChanged = millis();
+  }
+}
+
+void readRainDropData() {
+  sample.is_raining = (digitalRead(RAIN_DROP_DIGITAL_PIN) == LOW);
+  sample.rain_analog = (uint16_t)analogRead(RAIN_DROP_ANALOG_PIN);
+}
+
+void servicePmsa003I(unsigned long now) {
   sample.pm1_0 = last_pm1_0;
   sample.pm2_5 = last_pm2_5;
   sample.pm10 = last_pm10;
 
-  unsigned long now = millis();
   if (!pmsa003i_awake) {
     if (now - last_pm_measurement >= PM_MEASUREMENT_INTERVAL) {
       wakePMSA003I();
@@ -524,92 +769,98 @@ void readPMSA003IData() {
   }
 }
 
-void readUVIndexData() {
-  sample.uv_index = last_uv_index;
-  if (!uv_sensor_available) {
-    return;
+void runScheduledSensors(unsigned long now) {
+  if (now - lastBmeMs >= INTERVAL_BME_MS) {
+    readBME280Data();
+    lastBmeMs = now;
   }
-  selectI2CChannel(TCA_CHANNEL_2);
-  last_uv_index = (uint16_t)uvSensor.readUvIndexData();
-  sample.uv_index = last_uv_index;
+  if (now - lastLuxMs >= INTERVAL_LUX_MS) {
+    readTSL2591Data();
+    lastLuxMs = now;
+  }
+  if (now - lastMlxMs >= INTERVAL_MLX_MS) {
+    readMLX90614Data();
+    lastMlxMs = now;
+  }
+  if (now - lastUvMs >= INTERVAL_UV_MS) {
+    readUVIndexData();
+    lastUvMs = now;
+  }
+  if (now - lastRainMs >= INTERVAL_RAIN_MS) {
+    processRainReed();
+    readRainDropData();
+    lastRainMs = now;
+  }
+  servicePmsa003I(now);
 }
 
-void readRainReedData() {
-  int reedState = digitalRead(RAIN_REED_PIN);
-  if (firstLoop) {
-    lastState = reedState;
-    firstLoop = false;
-  }
-  if (reedState != lastState && (millis() - lastChanged) > 250) {
-    accumulated_rain_tips++;
-    rain_data_pending = true;
-    lastState = reedState;
-    lastChanged = millis();
-  }
-  sample.rain_tips = accumulated_rain_tips;
+void takeSnapshot(unsigned long now) {
+  updateWindReading();
+  sample.rain_tips = rainTipsThisCycle;
+  measureCycle++;
+  sample.cycle = measureCycle;
+  sample.packet_number = packetNumber;
+  handleUploads(now);
+  beginMeasurementCycle();
+  lastSnapshotMs = now;
 }
 
-void readRainDropData() {
-  sample.is_raining = (digitalRead(RAIN_DROP_DIGITAL_PIN) == LOW);
-  sample.rain_analog = (uint16_t)analogRead(RAIN_DROP_ANALOG_PIN);
+static unsigned long millisUntilNextEvent(unsigned long now) {
+  unsigned long nextDue = now + 50UL;
+
+  unsigned long due = lastSnapshotMs + SNAPSHOT_INTERVAL_MS;
+  if (due < nextDue) {
+    nextDue = due;
+  }
+  due = lastBmeMs + INTERVAL_BME_MS;
+  if (due < nextDue) {
+    nextDue = due;
+  }
+  due = lastLuxMs + INTERVAL_LUX_MS;
+  if (due < nextDue) {
+    nextDue = due;
+  }
+  due = lastMlxMs + INTERVAL_MLX_MS;
+  if (due < nextDue) {
+    nextDue = due;
+  }
+  due = lastUvMs + INTERVAL_UV_MS;
+  if (due < nextDue) {
+    nextDue = due;
+  }
+  due = lastRainMs + INTERVAL_RAIN_MS;
+  if (due < nextDue) {
+    nextDue = due;
+  }
+
+  if (nextDue > now) {
+    return nextDue - now;
+  }
+  return 0;
 }
 
-void readAnemometerData() {
-  InterruptCounter = 0;
-  attachInterrupt(digitalPinToInterrupt(WIND_SENSOR_PIN), countup, RISING);
-  delay(WIND_MEASUREMENT_TIME);
-  detachInterrupt(digitalPinToInterrupt(WIND_SENSOR_PIN));
-  sample.wind_revolutions = (uint16_t)InterruptCounter;
-}
-
-void uploadMeasurement() {
-  if (!wifi_module_ok) {
-    DBG_PRINTLN(F("WiFi module unavailable, skipping upload"));
-    return;
+void updateWindReading() {
+  uint32_t total = windPulseTotal;
+  uint32_t delta = total - windPulseLastSnap;
+  windPulseLastSnap = total;
+  if (delta > 65535UL) {
+    delta = 65535UL;
   }
-
-  if (uploadToApi(sample)) {
-    successfulUploads++;
-    if (rain_data_pending) {
-      accumulated_rain_tips = 0;
-      rain_data_pending = false;
-    }
-    DBG_PRINT(F("Packet "));
-    DBG_PRINT(packetNumber);
-    DBG_PRINTLN(F(" uploaded"));
-  } else {
-    failedUploads++;
-    DBG_PRINT(F("Packet "));
-    DBG_PRINT(packetNumber);
-    DBG_PRINTLN(F(" upload failed"));
-  }
-
-  packetNumber++;
-  if (packetNumber % 100 == 0) {
-    DBG_PRINT(F("Upload stats OK="));
-    DBG_PRINT(successfulUploads);
-    DBG_PRINT(F(" FAIL="));
-    DBG_PRINTLN(failedUploads);
-  }
+  sample.wind_revolutions = (uint16_t)delta;
 }
 
 void printDebugInfo() {
+  DBG_PRINT(isStartupLiveMode() ? F("[live] ") : F("[burst] "));
   DBG_PRINT(F("T="));
   DBG_PRINT(sample.temperature, 1);
-  DBG_PRINT(F("C P="));
-  DBG_PRINT(sample.pressure, 1);
-  DBG_PRINT(F("hPa H="));
-  DBG_PRINT(sample.humidity, 0);
-  DBG_PRINT(F("% Lux="));
-  DBG_PRINT(sample.illuminance, 0);
-  DBG_PRINT(F(" RainTips="));
-  DBG_PRINT(sample.rain_tips);
-  DBG_PRINT(F(" Wind="));
+  DBG_PRINT(F("C buf="));
+  DBG_PRINT(ringCount);
+  DBG_PRINT(F("/"));
+  DBG_PRINT(RING_BUFFER_SIZE);
+  DBG_PRINT(F(" wind="));
   DBG_PRINT(sample.wind_revolutions);
-  DBG_PRINT(F(" PM2.5="));
-  DBG_PRINT(sample.pm2_5);
-  DBG_PRINT(F(" UV="));
-  DBG_PRINTLN(sample.uv_index);
+  DBG_PRINT(F(" pkt="));
+  DBG_PRINTLN(packetNumber);
 }
 
 void checkAutoReset() {
@@ -618,8 +869,8 @@ void checkAutoReset() {
   }
 }
 
-void countup() {
-  InterruptCounter++;
+void windIsr() {
+  windPulseTotal++;
 }
 
 void setup() {
@@ -627,6 +878,7 @@ void setup() {
   digitalWrite(RESET_PIN, HIGH);
   pinMode(RAIN_REED_PIN, INPUT);
   pinMode(RAIN_DROP_DIGITAL_PIN, INPUT);
+  attachInterrupt(digitalPinToInterrupt(WIND_SENSOR_PIN), windIsr, RISING);
 
   Serial.begin(9600);
 #if SERIAL_DEBUG
@@ -638,7 +890,22 @@ void setup() {
   }
 #endif
 
-  DBG_PRINTLN(F("OST Weather Station — UNO R4 WiFi v1.1.0"));
+  bootMillis = millis();
+  lastBurstUploadMs = bootMillis;
+  unsigned long t0 = millis();
+  lastSnapshotMs = t0;
+  lastBmeMs = t0;
+  lastLuxMs = t0;
+  lastMlxMs = t0;
+  lastUvMs = t0;
+  lastRainMs = t0;
+  lastDebugMs = t0;
+
+  DBG_PRINTLN(F("OST Weather Station — UNO R4 WiFi v1.4.0"));
+
+#if DISABLE_LED_MATRIX
+  disableLedMatrix();
+#endif
 
   initializeI2CMultiplexer();
   initializeBME280();
@@ -648,24 +915,39 @@ void setup() {
   initializeUVSensor();
   initializeWiFiModule();
 
-  DBG_PRINTLN(F("Initialization complete"));
-}
-
-void loop() {
-  measureCycle++;
-  sample.cycle = measureCycle;
-  sample.packet_number = packetNumber;
-
   readBME280Data();
   readMLX90614Data();
   readTSL2591Data();
-  readPMSA003IData();
   readUVIndexData();
-  readRainReedData();
+  processRainReed();
   readRainDropData();
-  readAnemometerData();
+  servicePmsa003I(t0);
 
-  uploadMeasurement();
-  printDebugInfo();
+  DBG_PRINTLN(F("Initialization complete"));
+  DBG_PRINTLN(F("Scheduler: snapshot 2 Hz, per-sensor timers (see README)"));
+  DBG_PRINT(F("Startup live upload for "));
+  DBG_PRINT(STARTUP_LIVE_UPLOAD_MS / 1000UL);
+  DBG_PRINTLN(F(" s, then burst mode"));
+}
+
+void loop() {
+  unsigned long now = millis();
+
+  runScheduledSensors(now);
+
+  if (now - lastSnapshotMs >= SNAPSHOT_INTERVAL_MS) {
+    takeSnapshot(now);
+  }
+
+  if (now - lastDebugMs >= 2000UL) {
+    printDebugInfo();
+    lastDebugMs = now;
+  }
+
   checkAutoReset();
+
+  unsigned long sleepMs = millisUntilNextEvent(now);
+  if (sleepMs > 0) {
+    delay(sleepMs);
+  }
 }

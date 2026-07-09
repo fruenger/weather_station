@@ -47,9 +47,34 @@ See `../../wiring/pin_connections_r4_wifi.txt` for the full pin table.
 
 - R4 WiFi draws more current than a Nano, especially during WiFi transmit.
 - Keep **PMSA003I sleep/wake** (already in firmware).
-- Firmware sets `WIFI_DISCONNECT_AFTER_UPLOAD 1` — WiFi is only on during upload.
+- **Burst upload:** WiFi is off between 60 s upload windows (~5–15 s active per minute).
 - Use a solid 5 V regulator and local capacitors on the board and sensors.
 - `SERIAL_DEBUG` must be `0` in the field (no USB Serial reader).
+
+## Upload strategy (v1.4 — cooperative scheduler)
+
+| Setting | Value | Meaning |
+|---------|-------|---------|
+| Snapshot | **2 Hz** (500 ms) | Ring buffer + wind pulse window |
+| BME280 | **2 Hz** | Temperature, humidity, pressure |
+| TSL2591 | **1 Hz** | Lux (integration time) |
+| MLX90614 | **0.5 Hz** | Sky / box IR temperature |
+| UV | **1 Hz** | UV index |
+| Rain | **2 Hz** | Reed tips + drop sensor |
+| PM | **5 min** | Sleep/wake cycle (unchanged) |
+| Ring buffer | **130 samples** | 60 s × 2 Hz = 120 + margin |
+| Startup live | **5 min @ 1 Hz** | Test uploads (snapshots still 2 Hz) |
+| Burst | **every 60 s** | One WiFi/TLS session, HTTP keep-alive |
+
+### Slower sensors between snapshots
+
+Values for sensors polled less often than 500 ms are **held** (last known reading), not averaged. Example: MLX90614 updates every 2 s; the four snapshots in between repeat the previous sky/box temperature. This keeps each buffer row self-contained without inventing synthetic averages.
+
+### Wind
+
+Firmware uploads **raw revolutions per 500 ms**. Rolling 10 s mean and gust detection belong on the server — see `TODO.md`.
+
+**Buffer sizing:** `RING_BUFFER_SIZE` must be ≥ `UPLOAD_BURST_INTERVAL_MS / SNAPSHOT_INTERVAL_MS` + spare. At 60 s / 500 ms → 120 samples; buffer = 130.
 
 ## Software setup
 
@@ -86,9 +111,8 @@ Open `weather_station_r4_wifi.ino` in the Arduino IDE and upload.
 For first tests, set `#define SERIAL_DEBUG 1` in the sketch, open Serial Monitor at **9600 baud**, and verify:
 
 - All sensors initialize
-- WiFi connects
-- `NTP time synced`
-- `Packet N uploaded`
+- `Upload mode: startup live (1 Hz)` then uploads each second
+- After 5 min: `Upload mode: burst (buffered)` and `Burst upload: N samples`
 
 For deployment, set `SERIAL_DEBUG 0` and re-flash.
 
@@ -105,16 +129,37 @@ Fields match `receive.py` / `DatasetSerializer` (physical units, no integer scal
 Unit conversions applied in firmware:
 
 - **Rain:** tipping-bucket count × 1.25 → mm collector depth (same as classic `receive.py`)
-- **Wind:** raw anemometer revolutions per 1 s sample (website converts to m/s)
+- **Wind:** raw anemometer revolutions per 500 ms snapshot (server converts to m/s — see `TODO.md`)
 
-## Configuration defines (in .ino)
+## Configuration (in .ino)
 
-| Define | Default | Purpose |
-|--------|---------|---------|
+| Constant | Default | Purpose |
+|----------|---------|---------|
 | `SERIAL_DEBUG` | `0` | USB debug output |
-| `WIFI_DISCONNECT_AFTER_UPLOAD` | `1` | Save power between uploads |
+| `SNAPSHOT_INTERVAL_MS` | `500` | Ring buffer / wind window (2 Hz) |
+| `INTERVAL_BME_MS` | `500` | BME280 poll rate |
+| `INTERVAL_LUX_MS` | `1000` | TSL2591 poll rate |
+| `INTERVAL_MLX_MS` | `2000` | MLX90614 poll rate |
+| `INTERVAL_UV_MS` | `1000` | UV sensor poll rate |
+| `INTERVAL_RAIN_MS` | `500` | Rain reed + drop poll rate |
+| `LIVE_UPLOAD_INTERVAL_MS` | `1000` | Startup live upload rate (1 Hz) |
+| `STARTUP_LIVE_UPLOAD_MS` | `300000` | Live upload period after boot (5 min) |
+| `UPLOAD_BURST_INTERVAL_MS` | `60000` | Burst upload interval in field mode |
+| `RING_BUFFER_SIZE` | `130` | Max buffered samples (60 s @ 2 Hz + margin) |
 | `WIFI_CONNECT_TIMEOUT_MS` | `20000` | WiFi join timeout |
 | `PM_MEASUREMENT_INTERVAL` | `300000` | PMSA003I wake every 5 min |
+| `DISABLE_LED_MATRIX` | `1` | Blank onboard 12×8 LED matrix |
+
+## Power saving
+
+- **Burst upload:** snapshot 2 Hz, WiFi only during ~60 s burst windows
+- **Cooperative scheduler:** each sensor at its own rate (≤ 2 Hz); short `delay()` until next timer
+- **Non-blocking wind:** permanent interrupt, 500 ms pulse windows
+- **Startup live:** 5 min persistent WiFi for easy commissioning, then auto switch to burst
+- **`DISABLE_LED_MATRIX`**: all onboard LEDs off after boot
+- **`SERIAL_DEBUG 0`**: no blocking Serial in the field
+- **PMSA003I sleep/wake**: fan/laser off between PM cycles
+- **Rain per interval:** tips per 500 ms sample window
 
 ## Troubleshooting
 
@@ -146,6 +191,7 @@ weather_station_r4_wifi/
 ├── weather_station_r4_wifi.ino   # Main sketch
 ├── secrets.h.example             # Template credentials
 ├── secrets.h                     # Your credentials (gitignored, create locally)
+├── TODO.md                       # Server-side wind + bulk API plans
 ├── DEV_Config.* / TSL2591.*      # Light sensor support
 └── README.md                     # This file
 ```
