@@ -34,6 +34,8 @@ import threading
 import queue
 from astropy.time import Time
 from config import get_server_credentials, get_arduino_port_search, get_data_config
+from hmac_upload import encode_form, parse_secret_hex, sign_request
+
 import os
 import platform
 
@@ -360,57 +362,60 @@ def convert_scaled_data_to_physical(data):
     }
 
 
-def upload_data_to_server(data, username, password, server_url):
-    """Upload weather data to remote server.
-    
-    Args:
-        data (dict): Dictionary containing weather data
-        username (str): Username for server authentication
-        password (str): Password for server authentication
-        server_url (str): Server URL for upload
-        
-    Returns:
-        bool: True if upload successful, False otherwise
-    """
+def upload_data_to_server(data, device_id, key_id, secret_hex, server_url, canonical_path):
+    """Upload weather data using WEATHER-HMAC-V1 (exact body bytes signed)."""
     try:
-        # Prepare data for upload
         jd = Time(datetime.now(timezone.utc)).jd
-        
-        # `rain`: collector depth in mm (1.25 mm per tip); not mm/m² (converted on website).
         upload_data = {
-            'jd'          : jd,
-            'temperature' : data['temperature'],
-            'pressure'    : data['pressure'], 
-            'humidity'    : data['humidity'],
-            'illuminance' : data['illuminance'],
-            'wind_speed'  : data['wind_speed'],  # anemometer revolutions per interval
-            'rain'        : data['rain_mm'],
-            'sky_temp'    : data['sky_temp'],
-            'box_temp'    : data['box_temp'],
-            'is_raining'  : 1 if data['is_raining'] else 0,  # Convert boolean to integer for server
-            'rain_analog' : data['rain_analog'],
-            'pm1_0'       : data['pm1_0'],
-            'pm2_5'       : data['pm2_5'],
-            'pm10'        : data['pm10'],
-            'uv_index'    : data['uv_index']
+            'jd': jd,
+            'temperature': data['temperature'],
+            'pressure': data['pressure'],
+            'humidity': data['humidity'],
+            'illuminance': data['illuminance'],
+            'wind_speed': data['wind_speed'],
+            'rain': data['rain_mm'],
+            'sky_temp': data['sky_temp'],
+            'box_temp': data['box_temp'],
+            'is_raining': 1 if data['is_raining'] else 0,
+            'rain_analog': data['rain_analog'],
+            'pm1_0': data['pm1_0'],
+            'pm2_5': data['pm2_5'],
+            'pm10': data['pm10'],
+            'uv_index': data['uv_index'],
         }
-        
-        # Send POST request to server with authentication
-        response = requests.post(server_url, auth=(username, password), data=upload_data, timeout=10)
-        
-        if response.status_code in [200, 201]:  # Both 200 (OK) and 201 (Created) are success
-            print(f"[SUCCESS] Data uploaded successfully (Packet {data['packet_number']}) - Status: {response.status_code}")
+
+        body = encode_form(upload_data)
+        secret = parse_secret_hex(secret_hex)
+        body, headers = sign_request(
+            secret,
+            device_id=device_id,
+            key_id=key_id,
+            body=body,
+            canonical_path=canonical_path,
+        )
+        response = requests.post(
+            server_url,
+            data=body,
+            headers=headers,
+            timeout=10,
+        )
+
+        if response.status_code in [200, 201]:
+            print(
+                f"[SUCCESS] Data uploaded successfully "
+                f"(Packet {data['packet_number']}) - Status: {response.status_code}"
+            )
             return True
 
-        body = (response.text or '').strip().replace('\n', ' ')
-        if len(body) > 500:
-            body = body[:500] + '…'
+        body_text = (response.text or '').strip().replace('\n', ' ')
+        if len(body_text) > 500:
+            body_text = body_text[:500] + '…'
         print(
             f"[ERROR] Server returned status {response.status_code} "
-            f"for {server_url}: {body or '(empty response)'}"
+            f"for {server_url}: {body_text or '(empty response)'}"
         )
         return False
-            
+
     except requests.exceptions.RequestException as e:
         print(f"[ERROR] Network error during upload: {e}")
         return False
@@ -421,49 +426,37 @@ def upload_data_to_server(data, username, password, server_url):
 
 def save_failed_data(data, filename):
     """Save failed upload data to local CSV file.
-    
+
     Args:
         data (dict): Weather data to save
         filename (str): CSV filename
     """
     try:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
+
         # Create CSV line
         csv_line = f"{timestamp},{data['temperature']},{data['pressure']},{data['humidity']},{data['illuminance']},{data['wind_speed']},{data['rain_mm']},{data['sky_temp']},{data['box_temp']},{1 if data['is_raining'] else 0},{data['rain_analog']},{data['pm1_0']},{data['pm2_5']},{data['pm10']},{data['uv_index']}\n"
-        
+
         # Append to file
         with open(filename, 'a') as f:
             f.write(csv_line)
-            
+
         print(f"[INFO] Failed data saved to {filename}")
         
     except Exception as e:
         print(f"[ERROR] Failed to save data to CSV: {e}")
 
 
-def upload_worker(data_queue, failed_data_file, username, password, server_url):
-    """Worker thread for uploading data to server.
-    
-    Args:
-        data_queue (queue.Queue): Queue containing data to upload
-        failed_data_file (str): Filename for failed uploads
-        username (str): Username for server authentication
-        password (str): Password for server authentication
-        server_url (str): Server URL for upload
-    """
+def upload_worker(data_queue, failed_data_file, device_id, key_id, secret_hex, server_url, canonical_path):
+    """Worker thread for uploading data to server with HMAC-v1."""
     while True:
         try:
-            # Get data from queue (blocking)
             data = data_queue.get(timeout=1)
-            
-            # Attempt upload with authentication
-            if not upload_data_to_server(data, username, password, server_url):
-                # Save to local file if upload fails
+            if not upload_data_to_server(
+                data, device_id, key_id, secret_hex, server_url, canonical_path
+            ):
                 save_failed_data(data, failed_data_file)
-                
         except queue.Empty:
-            # No data in queue, continue
             continue
         except Exception as e:
             print(f"[ERROR] Upload worker error: {e}")
@@ -530,19 +523,30 @@ def main():
     print("Version 2.2")
     print("=" * 50)
     
-    # Load configuration
+    # Load configuration (HMAC-v1)
     data_config = get_data_config()
-    username, password, server_url = get_server_credentials()
-    
+    device_id, key_id, secret_hex, server_url, canonical_path = get_server_credentials()
+
     # Configuration from file
     failed_data_file = data_config.get("failed_data_file", "failed_uploads.csv")
     queue_size = data_config.get("queue_size", 100)
-    data_queue = queue.Queue(maxsize=queue_size)  # Limit queue size
-    
-    # Start upload worker thread with authentication
-    upload_thread = threading.Thread(target=upload_worker, args=(data_queue, failed_data_file, username, password, server_url), daemon=True)
+    data_queue = queue.Queue(maxsize=queue_size)
+
+    upload_thread = threading.Thread(
+        target=upload_worker,
+        args=(
+            data_queue,
+            failed_data_file,
+            device_id,
+            key_id,
+            secret_hex,
+            server_url,
+            canonical_path,
+        ),
+        daemon=True,
+    )
     upload_thread.start()
-    print("[INFO] Upload worker thread started")
+    print("[INFO] Upload worker thread started (HMAC-v1)")
     
     # Find Arduino port using the old working method
     PORT_NAME = "USB-SERIAL CH340"  # The correct port descriptor from the old code

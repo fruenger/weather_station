@@ -1,6 +1,6 @@
 /*
  * Weather Station - Arduino UNO R4 WiFi
- * Version: 1.4.0
+ * Version: 1.5.0
  *
  * Cooperative scheduler: each sensor at its own interval (<= 2 Hz).
  * Ring-buffer snapshot every 500 ms with last-known values for slower sensors.
@@ -21,9 +21,22 @@
 #include "Arduino_LED_Matrix.h"
 
 #include "secrets.h"
+#include "weather_hmac.h"
 
 #ifndef SECRET_WIFI_SSID
-#error "Create secrets.h from secrets.h.example (WiFi + API credentials)."
+#error "Create secrets.h from secrets.h.example (WiFi + HMAC credentials)."
+#endif
+#ifndef SECRET_DEVICE_ID
+#error "SECRET_DEVICE_ID missing in secrets.h"
+#endif
+#ifndef SECRET_KEY_ID
+#error "SECRET_KEY_ID missing in secrets.h"
+#endif
+#ifndef SECRET_HMAC_SECRET_HEX
+#error "SECRET_HMAC_SECRET_HEX missing in secrets.h"
+#endif
+#ifndef SECRET_HMAC_PATH
+#define SECRET_HMAC_PATH "/weather_station/weather_api/datasets/"
 #endif
 
 #define SERIAL_DEBUG 0
@@ -46,6 +59,9 @@ const uint16_t RING_BUFFER_SIZE = 130;
 
 const unsigned long WIFI_CONNECT_TIMEOUT_MS = 20000UL;
 const unsigned long HTTP_RESPONSE_TIMEOUT_MS = 15000UL;
+const unsigned long NTP_RESYNC_INTERVAL_MS = 20UL * 60UL * 1000UL;
+const unsigned long UPLOAD_BACKOFF_INITIAL_MS = 60000UL;
+const unsigned long UPLOAD_BACKOFF_MAX_MS = 30UL * 60UL * 1000UL;
 const uint16_t API_PORT = 443;
 
 #if SERIAL_DEBUG
@@ -157,49 +173,30 @@ unsigned long lastDebugMs = 0;
 bool uploadSessionOpen = false;
 bool startupLiveModeAnnounced = false;
 bool burstModeAnnounced = false;
-bool authHeaderReady = false;
-char authB64[140];
 
 bool timeSynced = false;
 unsigned long epochAtSync = 0;
 unsigned long millisAtSync = 0;
+unsigned long lastNtpSyncMs = 0;
+unsigned long uploadBackoffUntilMs = 0;
+unsigned long uploadBackoffMs = UPLOAD_BACKOFF_INITIAL_MS;
+
+enum HttpPostResultClass {
+  HTTP_POST_SUCCESS = 0,
+  HTTP_POST_AUTH_OR_RATE_LIMIT,
+  HTTP_POST_OTHER_ERROR,
+  HTTP_POST_TIMEOUT
+};
+
+struct HttpPostResult {
+  HttpPostResultClass resultClass;
+  int statusCode;
+  unsigned long retryAfterSec;
+};
 
 // ---------------------------------------------------------------------------
 // WiFi / HTTP helpers
 // ---------------------------------------------------------------------------
-
-static void base64Encode(const char *input, char *output, size_t outputSize) {
-  static const char *b64 =
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-  size_t inLen = strlen(input);
-  size_t outIdx = 0;
-
-  for (size_t i = 0; i < inLen; i += 3) {
-    uint32_t octetA = (uint8_t)input[i];
-    uint32_t octetB = (i + 1 < inLen) ? (uint8_t)input[i + 1] : 0;
-    uint32_t octetC = (i + 2 < inLen) ? (uint8_t)input[i + 2] : 0;
-    uint32_t triple = (octetA << 16) | (octetB << 8) | octetC;
-
-    if (outIdx + 4 >= outputSize) {
-      break;
-    }
-    output[outIdx++] = b64[(triple >> 18) & 0x3F];
-    output[outIdx++] = b64[(triple >> 12) & 0x3F];
-    output[outIdx++] = (i + 1 < inLen) ? b64[(triple >> 6) & 0x3F] : '=';
-    output[outIdx++] = (i + 2 < inLen) ? b64[triple & 0x3F] : '=';
-  }
-  output[outIdx] = '\0';
-}
-
-static void prepareAuthHeader() {
-  if (authHeaderReady) {
-    return;
-  }
-  char credentials[96];
-  snprintf(credentials, sizeof(credentials), "%s:%s", SECRET_API_USER, SECRET_API_PASS);
-  base64Encode(credentials, authB64, sizeof(authB64));
-  authHeaderReady = true;
-}
 
 static double julianDateFromUnix(unsigned long unixUtc) {
   return 2440587.5 + ((double)unixUtc / 86400.0);
@@ -217,6 +214,13 @@ static double currentJulianDate() {
   return jdAtMillis(millis());
 }
 
+static unsigned long currentUnixUtc() {
+  if (!timeSynced) {
+    return 0;
+  }
+  return epochAtSync + ((millis() - millisAtSync) / 1000UL);
+}
+
 static bool syncTimeFromNtp() {
   for (uint8_t attempt = 0; attempt < 20; attempt++) {
     unsigned long epoch = WiFi.getTime();
@@ -224,6 +228,7 @@ static bool syncTimeFromNtp() {
       epochAtSync = epoch;
       millisAtSync = millis();
       timeSynced = true;
+      lastNtpSyncMs = millis();
       DBG_PRINT(F("NTP time synced, epoch="));
       DBG_PRINTLN(epoch);
       return true;
@@ -234,9 +239,34 @@ static bool syncTimeFromNtp() {
   return false;
 }
 
+static void resetUploadBackoff() {
+  uploadBackoffMs = UPLOAD_BACKOFF_INITIAL_MS;
+  uploadBackoffUntilMs = 0;
+}
+
+static void applyUploadBackoff(unsigned long retryAfterSec) {
+  unsigned long waitMs = uploadBackoffMs;
+  if (retryAfterSec > 0) {
+    waitMs = retryAfterSec * 1000UL;
+    if (waitMs > UPLOAD_BACKOFF_MAX_MS) {
+      waitMs = UPLOAD_BACKOFF_MAX_MS;
+    }
+  }
+  uploadBackoffUntilMs = millis() + waitMs;
+  if (uploadBackoffMs < UPLOAD_BACKOFF_MAX_MS / 2UL) {
+    uploadBackoffMs *= 2UL;
+  } else {
+    uploadBackoffMs = UPLOAD_BACKOFF_MAX_MS;
+  }
+}
+
+static bool uploadBackoffActive() {
+  return millis() < uploadBackoffUntilMs;
+}
+
 static bool connectWiFi(bool requestNtpSync) {
   if (WiFi.status() == WL_CONNECTED) {
-    if (requestNtpSync && !timeSynced) {
+    if (requestNtpSync) {
       syncTimeFromNtp();
     }
     return true;
@@ -267,6 +297,25 @@ static bool connectWiFi(bool requestNtpSync) {
     syncTimeFromNtp();
   }
   return true;
+}
+
+static bool ensureTimeSynced(bool forceResync) {
+  bool needSync = !timeSynced || forceResync;
+  if (!needSync && lastNtpSyncMs > 0 &&
+      (millis() - lastNtpSyncMs) >= NTP_RESYNC_INTERVAL_MS) {
+    needSync = true;
+  }
+  if (!needSync) {
+    return timeSynced;
+  }
+
+  if (!connectWiFi(true)) {
+    return timeSynced;
+  }
+  if (syncTimeFromNtp()) {
+    return true;
+  }
+  return timeSynced;
 }
 
 static void disconnectWiFi() {
@@ -320,10 +369,41 @@ static void drainHttpResponse(WiFiSSLClient &client) {
   }
 }
 
-static bool readHttpSuccess(WiFiSSLClient &client) {
+static bool startsWithIgnoreCase(const char *line, const char *prefix) {
+  for (size_t i = 0; prefix[i] != '\0'; i++) {
+    char a = line[i];
+    char b = prefix[i];
+    if (a >= 'A' && a <= 'Z') {
+      a = (char)(a + ('a' - 'A'));
+    }
+    if (b >= 'A' && b <= 'Z') {
+      b = (char)(b + ('a' - 'A'));
+    }
+    if (a != b) {
+      return false;
+    }
+  }
+  return true;
+}
+
+static unsigned long parseRetryAfterSeconds(const char *value) {
+  while (*value == ' ' || *value == '\t') {
+    value++;
+  }
+  char *end = NULL;
+  unsigned long sec = strtoul(value, &end, 10);
+  if (end != value && sec > 0) {
+    return sec;
+  }
+  return 0;
+}
+
+static HttpPostResult readHttpPostResult(WiFiSSLClient &client) {
+  HttpPostResult result = {HTTP_POST_TIMEOUT, 0, 0};
   unsigned long deadline = millis() + HTTP_RESPONSE_TIMEOUT_MS;
-  char line[96];
+  char line[128];
   uint8_t lineIdx = 0;
+  bool statusParsed = false;
 
   while (millis() < deadline) {
     while (client.available()) {
@@ -333,21 +413,34 @@ static bool readHttpSuccess(WiFiSSLClient &client) {
       }
       if (c == '\n') {
         line[lineIdx] = '\0';
-        if (lineIdx > 0) {
-          if (strstr(line, "HTTP/1.1 200") != NULL ||
-              strstr(line, "HTTP/1.1 201") != NULL ||
-              strstr(line, "HTTP/2 200") != NULL ||
-              strstr(line, "HTTP/2 201") != NULL) {
-            drainHttpResponse(client);
-            return true;
-          }
-          if (strncmp(line, "HTTP/", 5) == 0) {
+        if (lineIdx == 0) {
+          drainHttpResponse(client);
+          return result;
+        }
+
+        if (!statusParsed && strncmp(line, "HTTP/", 5) == 0) {
+          const char *sp = strchr(line, ' ');
+          if (sp != NULL) {
+            result.statusCode = atoi(sp + 1);
+            if (result.statusCode == 200 || result.statusCode == 201) {
+              result.resultClass = HTTP_POST_SUCCESS;
+            } else if (result.statusCode == 401 || result.statusCode == 403 ||
+                       result.statusCode == 429) {
+              result.resultClass = HTTP_POST_AUTH_OR_RATE_LIMIT;
+            } else {
+              result.resultClass = HTTP_POST_OTHER_ERROR;
+            }
             DBG_PRINT(F("HTTP response: "));
             DBG_PRINTLN(line);
-            drainHttpResponse(client);
-            return false;
+          }
+          statusParsed = true;
+        } else if (startsWithIgnoreCase(line, "Retry-After:")) {
+          const char *value = strchr(line, ':');
+          if (value != NULL) {
+            result.retryAfterSec = parseRetryAfterSeconds(value + 1);
           }
         }
+
         lineIdx = 0;
         continue;
       }
@@ -360,11 +453,20 @@ static bool readHttpSuccess(WiFiSSLClient &client) {
     }
     delay(10);
   }
-  return false;
+
+  drainHttpResponse(client);
+  return result;
 }
 
 static bool beginUploadSession(bool requestNtpSync) {
-  prepareAuthHeader();
+  if (uploadBackoffActive()) {
+    DBG_PRINTLN(F("Upload deferred (backoff)"));
+    return false;
+  }
+  if (!ensureTimeSynced(requestNtpSync)) {
+    DBG_PRINTLN(F("Upload skipped: time not synced"));
+    return false;
+  }
   if (!connectWiFi(requestNtpSync)) {
     return false;
   }
@@ -389,27 +491,59 @@ static void endUploadSession() {
   }
 }
 
-static bool postSample(const Measurement &m, double jd, bool keepAlive) {
+static HttpPostResult postSample(const Measurement &m, double jd, bool keepAlive) {
+  HttpPostResult fail = {HTTP_POST_OTHER_ERROR, 0, 0};
+
   if (!validateMeasurement(m)) {
     DBG_PRINTLN(F("Upload skipped: validation failed"));
-    return false;
+    return fail;
   }
   if (jd <= 0.0) {
     DBG_PRINTLN(F("Upload skipped: invalid jd"));
-    return false;
+    return fail;
+  }
+  if (!timeSynced) {
+    DBG_PRINTLN(F("Upload skipped: time not synced"));
+    return fail;
   }
 
   char body[512];
   int bodyLen = buildUploadBody(body, sizeof(body), m, jd);
   if (bodyLen <= 0 || bodyLen >= (int)sizeof(body)) {
     DBG_PRINTLN(F("Upload body build failed"));
-    return false;
+    return fail;
+  }
+
+  unsigned long nowEpoch = currentUnixUtc();
+  if (nowEpoch < 1000000000UL) {
+    DBG_PRINTLN(F("Upload skipped: invalid timestamp"));
+    return fail;
+  }
+
+  char timestamp[12];
+  snprintf(timestamp, sizeof(timestamp), "%lu", nowEpoch);
+
+  char nonceHex[WEATHER_HMAC_NONCE_HEX_LEN + 1];
+  char signatureHex[WEATHER_HMAC_SIG_HEX_LEN + 1];
+  if (!weatherHmacSignBody(
+          SECRET_HMAC_PATH,
+          SECRET_DEVICE_ID,
+          SECRET_KEY_ID,
+          timestamp,
+          (const uint8_t *)body,
+          (size_t)bodyLen,
+          nonceHex,
+          sizeof(nonceHex),
+          signatureHex,
+          sizeof(signatureHex))) {
+    DBG_PRINTLN(F("Upload skipped: HMAC signing failed"));
+    return fail;
   }
 
   if (!sslClient.connected()) {
     if (!sslClient.connect(SECRET_API_HOST, API_PORT)) {
       DBG_PRINTLN(F("SSL reconnect failed"));
-      return false;
+      return fail;
     }
     uploadSessionOpen = true;
   }
@@ -419,9 +553,17 @@ static bool postSample(const Measurement &m, double jd, bool keepAlive) {
   sslClient.println(F(" HTTP/1.1"));
   sslClient.print(F("Host: "));
   sslClient.println(SECRET_API_HOST);
-  sslClient.print(F("Authorization: Basic "));
-  sslClient.println(authB64);
   sslClient.println(F("Content-Type: application/x-www-form-urlencoded"));
+  sslClient.print(F("X-Weather-Device: "));
+  sslClient.println(SECRET_DEVICE_ID);
+  sslClient.print(F("X-Weather-Key-Id: "));
+  sslClient.println(SECRET_KEY_ID);
+  sslClient.print(F("X-Weather-Timestamp: "));
+  sslClient.println(timestamp);
+  sslClient.print(F("X-Weather-Nonce: "));
+  sslClient.println(nonceHex);
+  sslClient.print(F("X-Weather-Signature: "));
+  sslClient.println(signatureHex);
   if (keepAlive) {
     sslClient.println(F("Connection: keep-alive"));
   } else {
@@ -432,7 +574,7 @@ static bool postSample(const Measurement &m, double jd, bool keepAlive) {
   sslClient.println();
   sslClient.print(body);
 
-  return readHttpSuccess(sslClient);
+  return readHttpPostResult(sslClient);
 }
 
 static bool isStartupLiveMode() {
@@ -466,14 +608,22 @@ static bool flushRingBuffer() {
   uint16_t uploaded = 0;
   for (uint16_t i = 0; i < ringCount; i++) {
     bool keepAlive = (i + 1 < ringCount);
-    if (postSample(ringBuffer[i].m, ringBuffer[i].jd, keepAlive)) {
+    HttpPostResult result = postSample(ringBuffer[i].m, ringBuffer[i].jd, keepAlive);
+    if (result.resultClass == HTTP_POST_SUCCESS) {
       uploaded++;
       successfulUploads++;
       packetNumber++;
+      resetUploadBackoff();
     } else {
       failedUploads++;
-      DBG_PRINT(F("Burst failed at index "));
-      DBG_PRINTLN(i);
+      if (result.resultClass == HTTP_POST_AUTH_OR_RATE_LIMIT) {
+        applyUploadBackoff(result.retryAfterSec);
+        DBG_PRINT(F("Burst auth/rate-limit HTTP "));
+        DBG_PRINTLN(result.statusCode);
+      } else {
+        DBG_PRINT(F("Burst failed at index "));
+        DBG_PRINTLN(i);
+      }
       break;
     }
   }
@@ -508,12 +658,20 @@ static bool uploadLiveSample(const Measurement &m, double jd) {
     useJd = currentJulianDate();
   }
 
-  bool ok = postSample(m, useJd, true);
-  if (ok) {
+  bool ok = false;
+  HttpPostResult result = postSample(m, useJd, true);
+  if (result.resultClass == HTTP_POST_SUCCESS) {
+    ok = true;
     successfulUploads++;
     packetNumber++;
+    resetUploadBackoff();
   } else {
     failedUploads++;
+    if (result.resultClass == HTTP_POST_AUTH_OR_RATE_LIMIT) {
+      applyUploadBackoff(result.retryAfterSec);
+      DBG_PRINT(F("Live upload auth/rate-limit HTTP "));
+      DBG_PRINTLN(result.statusCode);
+    }
     endUploadSession();
   }
   return ok;
@@ -521,6 +679,9 @@ static bool uploadLiveSample(const Measurement &m, double jd) {
 
 static void handleUploads(unsigned long captureMs) {
   if (!wifi_module_ok) {
+    return;
+  }
+  if (uploadBackoffActive()) {
     return;
   }
 
@@ -901,7 +1062,18 @@ void setup() {
   lastRainMs = t0;
   lastDebugMs = t0;
 
-  DBG_PRINTLN(F("OST Weather Station — UNO R4 WiFi v1.4.0"));
+  DBG_PRINTLN(F("OST Weather Station — UNO R4 WiFi v1.5.0"));
+
+  if (!weatherHmacInit(SECRET_HMAC_SECRET_HEX)) {
+    DBG_PRINTLN(F("ERROR: weatherHmacInit failed"));
+  }
+#if SERIAL_DEBUG
+  if (!weatherHmacSelfTest()) {
+    DBG_PRINTLN(F("WARNING: weatherHmacSelfTest failed"));
+  } else {
+    DBG_PRINTLN(F("weatherHmacSelfTest OK"));
+  }
+#endif
 
 #if DISABLE_LED_MATRIX
   disableLedMatrix();

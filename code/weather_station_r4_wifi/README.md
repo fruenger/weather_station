@@ -94,15 +94,34 @@ Same as the classic sender:
 
 No RF24 library needed.
 
-### 3. Credentials
+### 3. Credentials (WEATHER-HMAC-V1)
 
 ```bash
 cd weather_station/code/weather_station_r4_wifi
 cp secrets.h.example secrets.h
-# Edit secrets.h — WiFi SSID/password + API user/password
+# Edit secrets.h — WiFi + device_id / key_id / HMAC secret
 ```
 
-Use the same API user as `receive.py` / `weather_station_config.json`.
+Provision the device on the Django server (from the website project):
+
+```bash
+python manage.py provision_upload_device --device-id <your-device-id> --key-id key1
+```
+
+Copy the printed `device_id`, `key_id`, and 64-char hex `secret` into `secrets.h` as `SECRET_DEVICE_ID`, `SECRET_KEY_ID`, and `SECRET_HMAC_SECRET_HEX`.
+
+| Define | Purpose |
+|--------|---------|
+| `SECRET_WIFI_SSID` / `SECRET_WIFI_PASS` | Observatory 2.4 GHz WiFi |
+| `SECRET_API_HOST` / `SECRET_API_PATH` | HTTPS POST target |
+| `SECRET_HMAC_PATH` | Canonical signing path (default: `/weather_station/weather_api/datasets/`) |
+| `SECRET_DEVICE_ID` | Provisioned device id |
+| `SECRET_KEY_ID` | Active signing key id |
+| `SECRET_HMAC_SECRET_HEX` | 32-byte secret as 64 hex chars |
+
+**Never log or commit** `SECRET_HMAC_SECRET_HEX` or signatures in the field. Use `SERIAL_DEBUG` only on the bench.
+
+`SECRET_HMAC_PATH` is used only for the canonical string. `SECRET_API_PATH` may differ for local testing, but production should keep both equal.
 
 ### 4. Upload sketch
 
@@ -111,6 +130,8 @@ Open `weather_station_r4_wifi.ino` in the Arduino IDE and upload.
 For first tests, set `#define SERIAL_DEBUG 1` in the sketch, open Serial Monitor at **9600 baud**, and verify:
 
 - All sensors initialize
+- `weatherHmacSelfTest OK` (known test vectors)
+- `NTP time synced` before any upload
 - `Upload mode: startup live (1 Hz)` then uploads each second
 - After 5 min: `Upload mode: burst (buffered)` and `Burst upload: N samples`
 
@@ -122,7 +143,40 @@ The sketch POSTs `application/x-www-form-urlencoded` data to:
 
 `https://<SECRET_API_HOST><SECRET_API_PATH>`
 
-Fields match `receive.py` / `DatasetSerializer` (physical units, no integer scaling):
+### WEATHER-HMAC-V1 authentication
+
+Each POST is signed over the **exact raw body bytes** sent on the wire. Headers:
+
+| Header | Value |
+|--------|-------|
+| `X-Weather-Device` | `SECRET_DEVICE_ID` |
+| `X-Weather-Key-Id` | `SECRET_KEY_ID` |
+| `X-Weather-Timestamp` | Unix UTC seconds (requires NTP) |
+| `X-Weather-Nonce` | 32 lowercase hex chars (16 random bytes from hardware TRNG) |
+| `X-Weather-Signature` | lowercase hex HMAC-SHA256 |
+
+Canonical string (UTF-8, no trailing newline), lines joined by `\n`:
+
+```
+WEATHER-HMAC-V1
+POST
+<SECRET_HMAC_PATH>
+application/x-www-form-urlencoded
+<device_id>
+<key_id>
+<timestamp>
+<nonce>
+<sha256_hex_of_exact_raw_body>
+```
+
+Signing uses vendored **SHA-256 / HMAC-SHA256** (`sha256.c`, based on Brad Conte's public-domain crypto-algorithms). Nonces come from the Renesas **SCE hardware TRNG** (`HW_SCE_RNG_Read`, same path as the ArduinoCore `WMath` TRNG). No mbedtls Library Manager package and no `random()` fallback — if TRNG or signing fails, the upload is skipped and samples stay buffered.
+
+
+NTP is refreshed about every **20 minutes** while uploading. Uploads require `timeSynced`.
+
+On HTTP **401**, **403**, or **429**, buffered samples are **not** dropped. The firmware parses `Retry-After` when present and applies exponential backoff (60 s initial, up to 30 min).
+
+### Payload fields
 
 `jd`, `temperature` (°C), `pressure` (hPa), `humidity` (%), `illuminance` (lux), `wind_speed` (revolutions per sample), `rain` (mm collector depth), `sky_temp`, `box_temp`, `is_raining`, `pm1_0`, `pm2_5`, `pm10`, `uv_index`
 
@@ -147,6 +201,9 @@ Unit conversions applied in firmware:
 | `UPLOAD_BURST_INTERVAL_MS` | `60000` | Burst upload interval in field mode |
 | `RING_BUFFER_SIZE` | `130` | Max buffered samples (60 s @ 2 Hz + margin) |
 | `WIFI_CONNECT_TIMEOUT_MS` | `20000` | WiFi join timeout |
+| `NTP_RESYNC_INTERVAL_MS` | `1200000` | Re-sync NTP every 20 min |
+| `UPLOAD_BACKOFF_INITIAL_MS` | `60000` | Initial auth/rate-limit backoff |
+| `UPLOAD_BACKOFF_MAX_MS` | `1800000` | Max backoff (30 min) |
 | `PM_MEASUREMENT_INTERVAL` | `300000` | PMSA003I wake every 5 min |
 | `DISABLE_LED_MATRIX` | `1` | Blank onboard 12×8 LED matrix |
 
@@ -168,8 +225,13 @@ Unit conversions applied in firmware:
 | `WiFi module not found` | Firmware updater, board selection (R4 **WiFi**) |
 | `SSL connect failed` | WiFi firmware version, host reachable on 443 |
 | `NTP time sync failed` | Internet access from observatory WiFi |
+| `Upload skipped: time not synced` | Wait for NTP; uploads buffer until clock is valid |
+| `weatherHmacSelfTest failed` | SHA256/HMAC mismatch — re-flash; check `sha256.c` is compiled with the sketch |
+| `Upload skipped: HMAC signing failed` | SCE TRNG or secret parse failure; check `SECRET_HMAC_SECRET_HEX` |
+| `Upload deferred (backoff)` | Recent 401/403/429; waits per Retry-After / exponential backoff |
 | `Upload skipped: validation failed` | Sensor wiring / bogus readings |
-| HTTP 401 | `SECRET_API_USER` / `SECRET_API_PASS` in secrets.h |
+| HTTP 401 / 403 | Wrong device id, key id, or secret; re-provision or rotate key |
+| HTTP 429 | Rate limited; firmware backs off, buffer retained |
 | HTTP 400 | Field out of range — check Serial debug values |
 
 ### HTTPS / certificates
@@ -184,13 +246,36 @@ The R4 WiFi firmware embeds a CA bundle that works with most public HTTPS sites 
 4. Run in parallel with the old receiver for a few days if desired.
 5. Decommission receiver Arduino + `receive.py` when stable.
 
+## HMAC debug / self-test
+
+**Bench only** (`SERIAL_DEBUG 1`):
+
+1. On boot, confirm `weatherHmacSelfTest OK`.
+2. Confirm `NTP time synced` before uploads.
+3. Log HTTP status lines only — never print `SECRET_HMAC_SECRET_HEX`, nonces, or signatures in production.
+
+**Host-side vector check** (Linux, OpenSSL dev headers):
+
+```bash
+cd weather_station/code/weather_station_r4_wifi/tools
+g++ -std=c++17 -Wall -Wextra -o hmac_selftest hmac_selftest.cpp -lcrypto
+./hmac_selftest
+```
+
+Expected vectors are in `tools/hmac_test_vectors.txt`. Firmware `weatherHmacSelfTest()` uses the same constants.
+
 ## File layout
 
 ```
 weather_station_r4_wifi/
 ├── weather_station_r4_wifi.ino   # Main sketch
+├── weather_hmac.h / .cpp         # WEATHER-HMAC-V1 helpers
+├── sha256.h / .c                 # Vendored SHA-256 + HMAC (no mbedtls)
 ├── secrets.h.example             # Template credentials
 ├── secrets.h                     # Your credentials (gitignored, create locally)
+├── tools/
+│   ├── hmac_test_vectors.txt     # Known WEATHER-HMAC-V1 digests
+│   └── hmac_selftest.cpp         # Host OpenSSL vector check
 ├── TODO.md                       # Server-side wind + bulk API plans
 ├── DEV_Config.* / TSL2591.*      # Light sensor support
 └── README.md                     # This file

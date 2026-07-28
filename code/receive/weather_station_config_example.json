@@ -1,8 +1,10 @@
 {
     "server": {
         "url": "https://polaris.astro.physik.uni-potsdam.de/weather_station/weather_api/datasets/",
-        "username": "data_upload_user",
-        "password": ""
+        "device_id": "legacy-windows-pc",
+        "key_id": "",
+        "hmac_secret_hex": "",
+        "canonical_path": "/weather_station/weather_api/datasets/"
     },
     "arduino": {
         "port_search": [

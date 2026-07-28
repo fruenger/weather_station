@@ -1,0 +1,27 @@
+# WEATHER-HMAC-V1 test vectors (firmware + host self-test)
+# Secret: 32 zero bytes (64 hex chars of 0)
+# Computed with Python hashlib/hmac (must match vendored sha256.c on device).
+
+device_id=test-device
+key_id=key1
+timestamp=1700000000
+nonce=00112233445566778899aabbccddeeff
+path=/weather_station/weather_api/datasets/
+method=POST
+content_type=application/x-www-form-urlencoded
+body=jd=2460000.00000&temperature=20.00
+secret_hex=0000000000000000000000000000000000000000000000000000000000000000
+
+body_sha256_hex=272add28edef85bb137dd1dec6f7c69d5a74f13f2032f00507465a8e564fb7f9
+signature_hex=17dcbd5904c2dbf8a7780e2e90a8b63cb91fda199810fa18a24b1a3fb9a87c3c
+
+# Canonical string (UTF-8, no trailing newline):
+# WEATHER-HMAC-V1
+# POST
+# /weather_station/weather_api/datasets/
+# application/x-www-form-urlencoded
+# test-device
+# key1
+# 1700000000
+# 00112233445566778899aabbccddeeff
+# 272add28edef85bb137dd1dec6f7c69d5a74f13f2032f00507465a8e564fb7f9
