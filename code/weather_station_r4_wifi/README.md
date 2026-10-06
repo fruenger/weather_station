@@ -57,7 +57,7 @@ See `../../wiring/pin_connections_r4_wifi.txt` for the full pin table.
 |---------|-------|---------|
 | Snapshot | **2 Hz** (500 ms) | Ring buffer + wind pulse window |
 | BME280 | **2 Hz** | Temperature, humidity, pressure |
-| TSL2591 | **1 Hz** | Lux (integration time) |
+| TSL2591 | **1 Hz** | Lux, non-blocking poll with auto-ranging (see below) |
 | MLX90614 | **0.5 Hz** | Sky / box IR temperature |
 | UV | **1 Hz** | UV index |
 | Rain | **2 Hz** | Reed tips + drop sensor |
@@ -69,6 +69,17 @@ See `../../wiring/pin_connections_r4_wifi.txt` for the full pin table.
 ### Slower sensors between snapshots
 
 Values for sensors polled less often than 500 ms are **held** (last known reading), not averaged. Example: MLX90614 updates every 2 s; the four snapshots in between repeat the previous sky/box temperature. This keeps each buffer row self-contained without inventing synthetic averages.
+
+### Light sensor (TSL2591, since v1.6)
+
+The driver (`TSL2591.cpp`, logic in `tsl2591_logic.h`) integrates continuously and is polled without blocking: `TSL2591_Poll()` returns immediately when no integration has finished, so the 2 Hz snapshot and rain polling are not delayed (the old driver blocked for ≥ 300 ms per read).
+
+- **Auto-ranging in both directions** over eight gain × integration-time stages, from 1×/100 ms (direct sun) to 9876×/600 ms (night sky). A channel at ≥ 90 % of full scale steps one stage down, a reading that would stay below 50 % of full scale on the next stage steps one up. Readings in a saturated state are discarded, except on the least sensitive stage, where they are reported as a lower bound.
+- **Lux as float** with the original Waveshare formula `(ch0 − 2·ch1) / (t·gain / 762)`, so values stay comparable with the archive. Infrared-rich light that makes the formula negative is reported as 0 (previously it wrapped around to large values such as 53 000 lx); results are capped at 200 000 lx.
+- **I2C errors** (no ACK, short read) keep the last valid value; after 60 consecutive errors the sensor is re-initialised. `TSL2591_Init()` checks the chip ID, so a missing sensor is reported as unavailable.
+- The upload sends `illuminance` with three decimals to resolve the night sky brightness.
+
+Host test of the logic: `cd tools && g++ -std=c++17 -Wall -Wextra -o tsl2591_selftest tsl2591_selftest.cpp && ./tsl2591_selftest`
 
 ### Wind
 
@@ -275,8 +286,10 @@ weather_station_r4_wifi/
 ├── secrets.h                     # Your credentials (gitignored, create locally)
 ├── tools/
 │   ├── hmac_test_vectors.txt     # Known WEATHER-HMAC-V1 digests
-│   └── hmac_selftest.cpp         # Host OpenSSL vector check
+│   ├── hmac_selftest.cpp         # Host OpenSSL vector check
+│   └── tsl2591_selftest.cpp      # Host check of lux formula + auto-ranging
 ├── TODO.md                       # Server-side wind + bulk API plans
-├── DEV_Config.* / TSL2591.*      # Light sensor support
+├── DEV_Config.* / TSL2591.*      # Light sensor driver (I2C helpers, polling)
+├── tsl2591_logic.h               # Lux formula + auto-ranging (host-testable)
 └── README.md                     # This file
 ```

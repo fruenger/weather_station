@@ -1,6 +1,6 @@
 /*
  * Weather Station - Arduino UNO R4 WiFi
- * Version: 1.5.0
+ * Version: 1.6.0
  *
  * Cooperative scheduler: each sensor at its own interval (<= 2 Hz).
  * Ring-buffer snapshot every 500 ms with last-known values for slower sensors.
@@ -146,6 +146,10 @@ uint16_t last_pm1_0 = 0;
 uint16_t last_pm2_5 = 0;
 uint16_t last_pm10 = 0;
 uint16_t last_uv_index = 0;
+float last_illuminance = 0.0f;
+uint16_t luxErrorStreak = 0;
+// Consecutive TSL2591 I2C errors before the sensor is re-initialised (~1 min at 1 Hz)
+const uint16_t LUX_MAX_ERROR_STREAK = 60;
 
 volatile uint32_t windPulseTotal = 0;
 uint32_t windPulseLastSnap = 0;
@@ -350,7 +354,7 @@ static int buildUploadBody(char *body, size_t bodySize, const Measurement &m, do
 
   return snprintf(
       body, bodySize,
-      "jd=%.5f&temperature=%.2f&pressure=%.2f&humidity=%.2f&illuminance=%.1f"
+      "jd=%.5f&temperature=%.2f&pressure=%.2f&humidity=%.2f&illuminance=%.3f"
       "&wind_speed=%.0f&rain=%.2f&sky_temp=%.2f&box_temp=%.2f&is_raining=%d"
       "&pm1_0=%u&pm2_5=%u&pm10=%u&uv_index=%u",
       jd, m.temperature, m.pressure, m.humidity, m.illuminance,
@@ -851,13 +855,29 @@ void readMLX90614Data() {
   }
 }
 
+// Non-blocking: the TSL2591 integrates continuously and auto-ranges; between
+// finished integrations (and on transient I2C errors) the last value is held.
 void readTSL2591Data() {
-  if (light_sensor_available) {
-    selectI2CChannel(TCA_CHANNEL_4);
-    sample.illuminance = (float)TSL2591_Read_Lux();
-  } else {
+  if (!light_sensor_available) {
     sample.illuminance = 0.0f;
+    return;
   }
+  selectI2CChannel(TCA_CHANNEL_4);
+  float lux;
+  int status = TSL2591_Poll(&lux);
+  if (status == TSL2591_OK) {
+    last_illuminance = lux;
+    luxErrorStreak = 0;
+  } else if (status == TSL2591_ERROR) {
+    if (++luxErrorStreak >= LUX_MAX_ERROR_STREAK) {
+      DBG_PRINTLN(F("TSL2591 not responding, re-initialising"));
+      TSL2591_Init();
+      luxErrorStreak = 0;
+    }
+  } else {
+    luxErrorStreak = 0;
+  }
+  sample.illuminance = last_illuminance;
 }
 
 void readUVIndexData() {
@@ -1062,7 +1082,7 @@ void setup() {
   lastRainMs = t0;
   lastDebugMs = t0;
 
-  DBG_PRINTLN(F("OST Weather Station — UNO R4 WiFi v1.5.0"));
+  DBG_PRINTLN(F("OST Weather Station — UNO R4 WiFi v1.6.0"));
 
   if (!weatherHmacInit(SECRET_HMAC_SECRET_HEX)) {
     DBG_PRINTLN(F("ERROR: weatherHmacInit failed"));

@@ -76,12 +76,12 @@ function:	I2C Function initialization and transfer
 parameter:
 Info:
 ******************************************************************************/
+// Wire.begin() is called once by the sketch (initializeI2CMultiplexer)
 void DEV_I2C_Init(uint8_t Add)
 {
 #if DEV_I2C 
     DEV_I2C_Device = 1;
     I2C_ADDR =  Add;
-    Wire.begin();
 #endif
 }
 
@@ -95,20 +95,23 @@ void I2C_Write_Byte(uint8_t Cmd, uint8_t value)
 #endif
 }
 
+// Returns the byte, or -1 if the device did not answer
 int I2C_Read_Byte(uint8_t Cmd)
 {
 #if DEV_I2C 
     Wire.beginTransmission(I2C_ADDR);
     Wire.write(Cmd);
-    Wire.endTransmission();
-    Wire.requestFrom(I2C_ADDR, 1);
-    if (Wire.available()) {
-        return Wire.read();
+    if (Wire.endTransmission() != 0) {
+        return -1;
     }
-    return 0;
+    if (Wire.requestFrom(I2C_ADDR, (size_t)1) != 1 || !Wire.available()) {
+        return -1;
+    }
+    return Wire.read();
 #endif
 }
 
+// Returns the little-endian word (0..65535), or -1 if the device did not answer
 int I2C_Read_Word(uint8_t Cmd)
 {
 #if DEV_I2C 
@@ -116,8 +119,12 @@ int I2C_Read_Word(uint8_t Cmd)
 
     Wire.beginTransmission(I2C_ADDR);
     Wire.write(Cmd); 
-    Wire.endTransmission();
-    Wire.requestFrom(I2C_ADDR, 2);
+    if (Wire.endTransmission() != 0) {
+        return -1;
+    }
+    if (Wire.requestFrom(I2C_ADDR, (size_t)2) != 2 || Wire.available() < 2) {
+        return -1;
+    }
     t = Wire.read();
     x = Wire.read();
     x <<= 8;
@@ -132,7 +139,6 @@ Info:
 ******************************************************************************/
 UBYTE DEV_ModuleInit(void)
 {
-    Serial.begin(9600);
     GPIO_Config();
     DEV_I2C_Init(0x29);
     return 0;

@@ -19,6 +19,54 @@
 
 ---
 
+## Light sensor: switch to the Adafruit lux formula
+
+**Context (firmware v1.6):** `tsl2591_logic.h` still uses the Waveshare formula
+
+```
+lux = (ch0 − 2·ch1) / (t_ms · gain / 762)
+```
+
+It was kept on purpose so that new values stay comparable with the archive. Since v1.6 a negative result is clamped to 0; older firmware wrapped it to large values, e.g. the 53 000 lx night artefact.
+
+**Problem:**
+
+- The formula goes negative as soon as the infrared channel exceeds half of the full-spectrum channel (`ch1/ch0 > 0.5`). That is typical for street lighting and for the light-polluted night sky, so the night sky brightness reads 0.
+- With the old driver, 38 % of the night samples were the 53 000 lx artefact. Part of that may have been noise from the gain stuck at 1x, but IR-rich night light is likely.
+- A night brightness signal would be useful: clouds reflect city light, so an overcast sky is brighter. It could become a second night-time feature for the cloud detection (`datasets/cloud_detection.py` on the website), independent of the IR sensor.
+- The constant 762 is undocumented (comment "GA * 53").
+
+**Proposal:** use the formula of the Adafruit TSL2591 library:
+
+```
+cpl = t_ms · gain / 408
+lux = (ch0 − ch1) · (1 − ch1/ch0) / cpl      (0 if ch0 == 0)
+```
+
+It stays positive for any physical light, since `ch0` (full spectrum) always contains the infrared part `ch1`.
+
+**Effect on the values:** the scale changes. The ratio new/old depends on the infrared fraction `r = ch1/ch0`:
+
+| r | 0.15 | 0.25 | 0.35 | 0.45 | ≥ 0.5 |
+|---|------|------|------|------|-------|
+| new / old | 0.55 | 0.60 | 0.75 | 1.6 | old = 0, new > 0 |
+
+Daylight (r ≈ 0.15–0.3) therefore reads roughly 40 % lower. Neither formula is calibrated for the window in front of the sensor. An absolute scale can be fitted afterwards against the DWD global irradiance (`cloud_eval/`).
+
+**Before deciding:** run v1.6 for a few nights and check how often the night values are 0 at high gain. If they are rarely 0, the IR fraction was mostly noise and the switch is optional.
+
+**Steps:**
+
+1. Change `computeLux()` and `LUX_DF` in `tsl2591_logic.h`; adapt `tools/tsl2591_selftest.cpp` (expected values, IR-rich case > 0).
+2. Bump the firmware version and note the scale change in `README.md`.
+3. On the website, add a **Calibration epoch** in the admin at the time of flashing; the cloud detection then recalibrates the lux feature. Ideally flash together with the planned hardware changes (open IR view, quartz window), so that one epoch covers all of them.
+4. Note the break in the illuminance series for plots / CSV users (website `README.md`, upload field table).
+5. After some weeks, compare lux with the DWD global irradiance in `cloud_eval/`, and evaluate night brightness as an additional cloud feature with `validate_detector.py`.
+
+**Priority:** Medium — cheap to do, but only worth it together with the next calibration epoch.
+
+---
+
 ## Bulk upload API (optional server optimization)
 
 **Problem:** In burst mode the Arduino uploads up to ~60 samples per minute via separate HTTP POST requests on one keep-alive TLS connection. Each POST still carries full HTTP headers and Django/DRF processing overhead.
