@@ -1,6 +1,6 @@
 /*
  * Weather Station - Arduino UNO R4 WiFi
- * Version: 1.6.0
+ * Version: 1.7.0
  *
  * Cooperative scheduler: each sensor at its own interval (<= 2 Hz).
  * Ring-buffer snapshot every 500 ms with last-known values for slower sensors.
@@ -1082,7 +1082,7 @@ void setup() {
   lastRainMs = t0;
   lastDebugMs = t0;
 
-  DBG_PRINTLN(F("OST Weather Station — UNO R4 WiFi v1.6.0"));
+  DBG_PRINTLN(F("OST Weather Station — UNO R4 WiFi v1.7.0"));
 
   if (!weatherHmacInit(SECRET_HMAC_SECRET_HEX)) {
     DBG_PRINTLN(F("ERROR: weatherHmacInit failed"));

@@ -31,8 +31,8 @@ bool near(float a, float b, float rel = 1e-4f) {
 
 // Simulated sensor: counts produced by a light level on a stage, clipped at full scale
 void simulate(float lux, float ir_fraction, const Stage &s, uint16_t &ch0, uint16_t &ch1) {
-  // Invert computeLux: lux = (ch0 - 2 ch1) / cpl with ch1 = ir_fraction * ch0
-  float c0 = lux * countsPerLux(s) / (1.0f - 2.0f * ir_fraction);
+  // Invert computeLux: lux = (ch0 - ch1)(1 - ch1/ch0) / cpl = ch0 (1 - r)^2 / cpl
+  float c0 = lux * countsPerLux(s) / ((1.0f - ir_fraction) * (1.0f - ir_fraction));
   float c1 = ir_fraction * c0;
   float limit = (float)maxCount(s);
   ch0 = (uint16_t)std::fmin(c0, limit);
@@ -62,10 +62,12 @@ float settle(float lux, float ir_fraction, uint8_t &stage, int &steps) {
 int main() {
   // Lux formula
   const Stage &s25 = STAGES[DEFAULT_STAGE];  // 25x, 100 ms
-  check(near(countsPerLux(s25), 2500.0f / 762.0f), "counts per lux 25x/100ms");
-  check(near(computeLux(1000, 100, s25), 800.0f / (2500.0f / 762.0f)), "lux from counts");
-  check(computeLux(100, 60, s25) == 0.0f, "infrared-rich light clamps to 0 (no uint16 wrap)");
-  check(computeLux(36863, 0, STAGES[0]) == LUX_MAX, "lux clamps to LUX_MAX");
+  check(near(countsPerLux(s25), 2500.0f / 408.0f), "counts per lux 25x/100ms");
+  check(near(computeLux(1000, 100, s25), 900.0f * 0.9f / (2500.0f / 408.0f)), "lux from counts");
+  check(computeLux(100, 60, s25) > 0.0f, "infrared-rich light (ch1/ch0 = 0.6) stays positive");
+  check(computeLux(0, 0, s25) == 0.0f, "darkness gives 0");
+  check(computeLux(50, 60, s25) == 0.0f, "inconsistent counts (ch1 > ch0) give 0");
+  check(computeLux(36863, 0, STAGES[0]) <= LUX_MAX, "largest reading on stage 0 within LUX_MAX");
 
   // Saturation and ranging decisions
   check(isSaturated(34000, 100, s25), "ch0 near full scale is saturated (100 ms limit 36863)");
@@ -91,18 +93,31 @@ int main() {
   }
 
   // End-to-end: daylight to night sky, starting from the power-up stage
-  struct Case { float lux; const char *name; };
+  struct Case { float lux; float ir_fraction; const char *name; };
   const Case cases[] = {
-      {150000.0f, "full sun behind window"}, {30000.0f, "overcast day"}, {500.0f, "dusk"},
-      {5.0f, "late twilight"}, {0.05f, "light-polluted night sky"}};
+      {30000.0f, 0.2f, "overcast day"}, {500.0f, 0.2f, "dusk"}, {5.0f, 0.3f, "late twilight"},
+      {0.05f, 0.2f, "light-polluted night sky"},
+      {0.05f, 0.6f, "night sky lit by IR-rich street lighting"}};
   for (const Case &c : cases) {
     uint8_t stage = DEFAULT_STAGE;
     int steps = 0;
-    float lux = settle(c.lux, 0.2f, stage, steps);
+    float lux = settle(c.lux, c.ir_fraction, stage, steps);
     char what[120];
     std::snprintf(what, sizeof what, "%s: %.3g lx -> %.3g lx on stage %u after %d steps",
                   c.name, c.lux, lux, stage, steps);
-    check(near(lux, c.lux, 0.05f) || (c.lux > 100000.0f && lux >= 100000.0f), what);
+    check(near(lux, c.lux, 0.05f), what);
+  }
+
+  // Direct sun saturates even the least sensitive stage: reported as lower bound.
+  // Only ch0 clips, so the infrared fraction appears too high and the bound is
+  // well below the true value; it still marks the interval as very bright.
+  {
+    uint8_t stage = DEFAULT_STAGE;
+    int steps = 0;
+    float lux = settle(150000.0f, 0.2f, stage, steps);
+    char what[120];
+    std::snprintf(what, sizeof what, "full sun: stage %u, lower bound %.3g lx", stage, lux);
+    check(stage == 0 && lux >= 50000.0f && lux <= LUX_MAX, what);
   }
 
   std::printf("%s (%d failure%s)\n", failures ? "FAILED" : "PASSED", failures,

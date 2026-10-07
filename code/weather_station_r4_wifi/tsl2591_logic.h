@@ -28,9 +28,9 @@ const uint8_t ATIME_300 = 0x02;
 const uint8_t ATIME_400 = 0x03;
 const uint8_t ATIME_600 = 0x05;
 
-// Lux scaling as in the original Waveshare driver ("GA * 53", GA = glass
-// attenuation); kept so that new values stay comparable with the archive.
-const float LUX_DF = 762.0f;
+// Lux coefficient of the Adafruit TSL2591 library (since firmware v1.7; the
+// Waveshare driver used 762 with a different formula, see computeLux()).
+const float LUX_DF = 408.0f;
 // Upper bound accepted by the firmware validation and the server
 const float LUX_MAX = 200000.0f;
 
@@ -53,7 +53,7 @@ const Stage STAGES[] = {
     {GAIN_MAX, ATIME_600, 9876.0f, 600},
 };
 const uint8_t NUM_STAGES = sizeof(STAGES) / sizeof(STAGES[0]);
-// Stage used after power-up: 25x / 100 ms covers roughly 0.4 .. 10000 lx
+// Stage used after power-up: 25x / 100 ms covers roughly 0.2 .. 5000 lx
 const uint8_t DEFAULT_STAGE = 2;
 
 inline uint32_t maxCount(const Stage &s) {
@@ -65,13 +65,18 @@ inline float countsPerLux(const Stage &s) {
   return (s.atime_ms * s.again) / LUX_DF;
 }
 
-// Lux from raw channel counts (ch0 = full spectrum, ch1 = infrared).
-// Negative results (infrared-rich light) are clamped to 0, large ones to LUX_MAX.
+// Lux from raw channel counts (ch0 = full spectrum, ch1 = infrared), formula of
+// the Adafruit TSL2591 library. Unlike the Waveshare formula (ch0 - 2 ch1) it
+// stays positive for infrared-rich light (street lighting, light-polluted night
+// sky), since ch0 always contains the infrared part ch1. Large results are
+// clamped to LUX_MAX.
 inline float computeLux(uint16_t ch0, uint16_t ch1, const Stage &s) {
-  float lux = ((float)ch0 - 2.0f * (float)ch1) / countsPerLux(s);
-  if (lux < 0.0f) {
+  if (ch0 == 0 || ch1 >= ch0) {
     return 0.0f;
   }
+  float c0 = (float)ch0;
+  float c1 = (float)ch1;
+  float lux = (c0 - c1) * (1.0f - c1 / c0) / countsPerLux(s);
   if (lux > LUX_MAX) {
     return LUX_MAX;
   }

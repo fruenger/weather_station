@@ -70,12 +70,14 @@ See `../../wiring/pin_connections_r4_wifi.txt` for the full pin table.
 
 Values for sensors polled less often than 500 ms are **held** (last known reading), not averaged. Example: MLX90614 updates every 2 s; the four snapshots in between repeat the previous sky/box temperature. This keeps each buffer row self-contained without inventing synthetic averages.
 
-### Light sensor (TSL2591, since v1.6)
+### Light sensor (TSL2591, since v1.6; lux formula since v1.7)
 
 The driver (`TSL2591.cpp`, logic in `tsl2591_logic.h`) integrates continuously and is polled without blocking: `TSL2591_Poll()` returns immediately when no integration has finished, so the 2 Hz snapshot and rain polling are not delayed (the old driver blocked for ≥ 300 ms per read).
 
 - **Auto-ranging in both directions** over eight gain × integration-time stages, from 1×/100 ms (direct sun) to 9876×/600 ms (night sky). A channel at ≥ 90 % of full scale steps one stage down, a reading that would stay below 50 % of full scale on the next stage steps one up. Readings in a saturated state are discarded, except on the least sensitive stage, where they are reported as a lower bound.
-- **Lux as float** with the original Waveshare formula `(ch0 − 2·ch1) / (t·gain / 762)`, so values stay comparable with the archive. Infrared-rich light that makes the formula negative is reported as 0 (previously it wrapped around to large values such as 53 000 lx); results are capped at 200 000 lx.
+- **Lux as float** with the formula of the Adafruit TSL2591 library (since v1.7): `(ch0 − ch1)·(1 − ch1/ch0) / (t·gain / 408)`, capped at 200 000 lx. Unlike the Waveshare formula `(ch0 − 2·ch1) / (t·gain / 762)` used up to v1.6, it stays positive for infrared-rich light (street lighting, light-polluted night sky), so the night sky brightness is measured instead of reading 0 (older drivers wrapped those cases to values such as 53 000 lx).
+- **Scale change in v1.7:** values are not comparable with earlier firmware. Daylight (infrared fraction `ch1/ch0` ≈ 0.15–0.3) reads about 40 % lower than with v1.6; at `ch1/ch0` ≥ 0.5 v1.6 reported 0. When flashing v1.7, add a **Calibration epoch** in the website admin so the cloud detection recalibrates.
+- In direct sun even the least sensitive stage (1×/100 ms) can saturate. Only `ch0` clips, so the reported value is a lower bound well below the true illuminance; it still marks the interval as very bright.
 - **I2C errors** (no ACK, short read) keep the last valid value; after 60 consecutive errors the sensor is re-initialised. `TSL2591_Init()` checks the chip ID, so a missing sensor is reported as unavailable.
 - The upload sends `illuminance` with three decimals to resolve the night sky brightness.
 
