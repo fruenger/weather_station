@@ -17,7 +17,7 @@ An optional **single-board** setup uploads directly to the Django API over WiFi 
 
 - Sketch: `code/weather_station_r4_wifi/weather_station_r4_wifi.ino`
 - Setup guide: `code/weather_station_r4_wifi/README.md`
-- Wiring: `wiring/pin_connections_r4_wifi.txt`
+- Wiring: `wiring/pin_connections_r4_wifi.txt`, diagram `wiring/wiring_r4_wifi.svg` (interactive: `wiring/wiring_r4_wifi.html`)
 
 ## Hardware Components
 
@@ -74,7 +74,7 @@ The system transmits 16 int16_t values (32 bytes total - nRF24L01 hardware limit
 
 - **receive.py**: Main data processing and server upload script
 - **config.py**: Configuration management for server credentials
-- **wiring_diagram.py**: Wiring diagram generation (does not work currently)
+- **wiring/wiring_diagram.py**: Generates the R4 WiFi wiring diagram (`wiring_r4_wifi.svg`, `.png`, interactive `.html`) from one description of components, pins and connections; run `python3 wiring/wiring_diagram.py` after wiring changes
 
 ## Setup Instructions
 

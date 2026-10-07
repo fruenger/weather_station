@@ -34,7 +34,7 @@ Same sensors and TCA9548A multiplexer as the classic sender. Pin mapping is iden
 | A4 (SDA), A5 (SCL) | I2C → TCA9548A |
 | D2 | Rain reed (tipping bucket) |
 | D3 | Anemometer (interrupt) |
-| D4 | Watchdog reset output |
+| D4 | → RESET pin: hourly self-reset (input during operation, output LOW to reset) |
 | D5 | Rain drop digital |
 | D6 | PMSA003I SET (sleep/wake) |
 | A1 | Rain drop analog |

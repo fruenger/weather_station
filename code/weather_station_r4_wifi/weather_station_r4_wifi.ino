@@ -1044,9 +1044,14 @@ void printDebugInfo() {
   DBG_PRINTLN(packetNumber);
 }
 
+// RESET_PIN (D4) is wired to the board's RESET pin. It stays a high-impedance
+// input during operation and is only switched to output LOW for the reset:
+// on the R4 core pinMode(OUTPUT) drives LOW immediately, so driving it HIGH at
+// boot would pulse RESET and make the board reset in a loop.
 void checkAutoReset() {
   if (millis() > RESET_INTERVAL) {
     digitalWrite(RESET_PIN, LOW);
+    pinMode(RESET_PIN, OUTPUT);
   }
 }
 
@@ -1055,8 +1060,7 @@ void windIsr() {
 }
 
 void setup() {
-  pinMode(RESET_PIN, OUTPUT);
-  digitalWrite(RESET_PIN, HIGH);
+  pinMode(RESET_PIN, INPUT);  // released; see checkAutoReset()
   pinMode(RAIN_REED_PIN, INPUT);
   pinMode(RAIN_DROP_DIGITAL_PIN, INPUT);
   attachInterrupt(digitalPinToInterrupt(WIND_SENSOR_PIN), windIsr, RISING);

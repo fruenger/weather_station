@@ -1,0 +1,275 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1740 1150" font-family="Inter, Segoe UI, Helvetica, Arial, sans-serif" class="wiring">
+<title>OST Weather Station — Wiring (Arduino UNO R4 WiFi)</title>
+<rect x="0" y="0" width="1740" height="1150" fill="#ffffff"/>
+<text x="40" y="44" font-size="24" font-weight="bold" text-anchor="start" fill="#1d2229" class-="label">OST Weather Station — Wiring (Arduino UNO R4 WiFi)</text>
+<text x="40" y="70" font-size="13" text-anchor="start" fill="#5b6573" class-="label">Firmware v1.7 · pins as in weather_station_r4_wifi.ino · same net label = same rail</text>
+<polyline points="230,265 330,265" fill="none" stroke="#8e2b2b" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="VIN"/>
+<polyline points="590,340 780,340" fill="none" stroke="#2a78d6" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="SDA"/>
+<polyline points="590,380 780,380" fill="none" stroke="#159a6a" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="SCL"/>
+<polyline points="590,270 650,270 650,62 1320,62 1320,125 1340,125" fill="none" stroke="#e2622a" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="D6"/>
+<polyline points="535,660 535,690 568,690 568,660" fill="none" stroke="#795548" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="D4"/>
+<polyline points="980,330 1000,330 1000,165 1340,165" fill="none" stroke="#2a78d6" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="SD0"/>
+<polyline points="980,360 1012,360 1012,195 1340,195" fill="none" stroke="#159a6a" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="SC0"/>
+<polyline points="980,410 1024,410 1024,310 1110,310" fill="none" stroke="#2a78d6" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="SD1"/>
+<polyline points="980,440 1036,440 1036,340 1110,340" fill="none" stroke="#159a6a" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="SC1"/>
+<polyline points="1260,310 1340,310" fill="none" stroke="#2a78d6" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="LSDA"/>
+<polyline points="1260,340 1340,340" fill="none" stroke="#159a6a" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="LSCL"/>
+<polyline points="980,490 1340,490" fill="none" stroke="#2a78d6" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="SD2"/>
+<polyline points="980,520 1340,520" fill="none" stroke="#159a6a" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="SC2"/>
+<polyline points="980,570 1036,570 1036,640 1340,640" fill="none" stroke="#2a78d6" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="SD3"/>
+<polyline points="980,600 1024,600 1024,670 1340,670" fill="none" stroke="#159a6a" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="SC3"/>
+<polyline points="980,650 1012,650 1012,790 1340,790" fill="none" stroke="#2a78d6" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="SD4"/>
+<polyline points="980,680 1000,680 1000,820 1340,820" fill="none" stroke="#159a6a" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="SC4"/>
+<polyline points="360,660 360,765 200,765 200,820" fill="none" stroke="#4a3aa7" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="D2"/>
+<polyline points="405,660 405,785 420,785 420,820" fill="none" stroke="#c2457a" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="D3"/>
+<polyline points="450,660 450,765 600,765 600,820" fill="none" stroke="#b07a00" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="D5"/>
+<polyline points="495,660 495,740 660,740 660,820" fill="none" stroke="#2f7d1f" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="A1"/>
+<rect x="40" y="220" width="190" height="130" rx="10" fill="#fbeceb" stroke="#8e2b2b" stroke-width="2" class-="comp" data-comp="psu"/>
+<text x="135.0" y="266.0" font-size="15" font-weight="bold" text-anchor="middle" fill="#1d2229" class-="label" data-comp="psu">Power supply</text>
+<text x="135.0" y="286.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="psu">6–24 V DC</text>
+<text x="135.0" y="302.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="psu">solar / battery</text>
+<text x="135.0" y="318.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="psu">via regulator</text>
+<rect x="225" y="260" width="10" height="10" rx="2" fill="#ffffff" stroke="#8e2b2b" stroke-width="2.4" class-="pin" data-net="VIN" data-comp="psu"/>
+<text x="221" y="269" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="VIN" data-comp="psu">+</text>
+<rect x="130" y="345" width="10" height="10" rx="2" fill="#ffffff" stroke="#2b2b2b" stroke-width="2.4" class-="pin" data-net="GND" data-comp="psu"/>
+<text x="135" y="341" font-size="11" text-anchor="middle" fill="#1d2229" class-="label" data-net="GND" data-comp="psu">−</text>
+<rect x="330" y="220" width="260" height="440" rx="10" fill="#e8f0fb" stroke="#2a5ea8" stroke-width="2" class-="comp" data-comp="r4"/>
+<text x="460.0" y="475" font-size="15" font-weight="bold" text-anchor="middle" fill="#1d2229" class-="label" data-comp="r4">Arduino UNO R4 WiFi</text>
+<text x="460.0" y="495" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="r4">5 V logic</text>
+<text x="460.0" y="511" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="r4">WiFi: on-board ESP32-S3</text>
+<text x="460.0" y="527" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="r4"></text>
+<text x="460.0" y="543" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="r4">Firmware v1.7</text>
+<rect x="325" y="260" width="10" height="10" rx="2" fill="#ffffff" stroke="#8e2b2b" stroke-width="2.4" class-="pin" data-net="VIN" data-comp="r4"/>
+<text x="339" y="269" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="VIN" data-comp="r4">VIN</text>
+<rect x="325" y="320" width="10" height="10" rx="2" fill="#ffffff" stroke="#d0342c" stroke-width="2.4" class-="pin" data-net="5V" data-comp="r4"/>
+<text x="339" y="329" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="5V" data-comp="r4">5V</text>
+<rect x="325" y="370" width="10" height="10" rx="2" fill="#ffffff" stroke="#e07b00" stroke-width="2.4" class-="pin" data-net="3V3" data-comp="r4"/>
+<text x="339" y="379" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="3V3" data-comp="r4">3.3V</text>
+<rect x="325" y="420" width="10" height="10" rx="2" fill="#ffffff" stroke="#2b2b2b" stroke-width="2.4" class-="pin" data-net="GND" data-comp="r4"/>
+<text x="339" y="429" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="GND" data-comp="r4">GND</text>
+<rect x="585" y="265" width="10" height="10" rx="2" fill="#ffffff" stroke="#e2622a" stroke-width="2.4" class-="pin" data-net="D6" data-comp="r4"/>
+<text x="581" y="274" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="D6" data-comp="r4">D6</text>
+<rect x="585" y="335" width="10" height="10" rx="2" fill="#ffffff" stroke="#2a78d6" stroke-width="2.4" class-="pin" data-net="SDA" data-comp="r4"/>
+<text x="581" y="344" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="SDA" data-comp="r4">A4 / SDA</text>
+<rect x="585" y="375" width="10" height="10" rx="2" fill="#ffffff" stroke="#159a6a" stroke-width="2.4" class-="pin" data-net="SCL" data-comp="r4"/>
+<text x="581" y="384" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="SCL" data-comp="r4">A5 / SCL</text>
+<rect x="355" y="655" width="10" height="10" rx="2" fill="#ffffff" stroke="#4a3aa7" stroke-width="2.4" class-="pin" data-net="D2" data-comp="r4"/>
+<text x="360" y="651" font-size="11" text-anchor="middle" fill="#1d2229" class-="label" data-net="D2" data-comp="r4">D2</text>
+<rect x="400" y="655" width="10" height="10" rx="2" fill="#ffffff" stroke="#c2457a" stroke-width="2.4" class-="pin" data-net="D3" data-comp="r4"/>
+<text x="405" y="651" font-size="11" text-anchor="middle" fill="#1d2229" class-="label" data-net="D3" data-comp="r4">D3</text>
+<rect x="445" y="655" width="10" height="10" rx="2" fill="#ffffff" stroke="#b07a00" stroke-width="2.4" class-="pin" data-net="D5" data-comp="r4"/>
+<text x="450" y="651" font-size="11" text-anchor="middle" fill="#1d2229" class-="label" data-net="D5" data-comp="r4">D5</text>
+<rect x="490" y="655" width="10" height="10" rx="2" fill="#ffffff" stroke="#2f7d1f" stroke-width="2.4" class-="pin" data-net="A1" data-comp="r4"/>
+<text x="495" y="651" font-size="11" text-anchor="middle" fill="#1d2229" class-="label" data-net="A1" data-comp="r4">A1</text>
+<rect x="530" y="655" width="10" height="10" rx="2" fill="#ffffff" stroke="#795548" stroke-width="2.4" class-="pin" data-net="D4" data-comp="r4"/>
+<text x="535" y="651" font-size="11" text-anchor="middle" fill="#1d2229" class-="label" data-net="D4" data-comp="r4">D4</text>
+<rect x="563" y="655" width="10" height="10" rx="2" fill="#ffffff" stroke="#795548" stroke-width="2.4" class-="pin" data-net="D4" data-comp="r4"/>
+<text x="568" y="651" font-size="11" text-anchor="middle" fill="#1d2229" class-="label" data-net="D4" data-comp="r4">RESET</text>
+<rect x="780" y="300" width="200" height="400" rx="10" fill="#eef0f3" stroke="#5b6573" stroke-width="2" class-="comp" data-comp="tca"/>
+<text x="880.0" y="489.0" font-size="15" font-weight="bold" text-anchor="middle" fill="#1d2229" class-="label" data-comp="tca">TCA9548A</text>
+<text x="880.0" y="509.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="tca">I²C multiplexer</text>
+<text x="880.0" y="525.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="tca">address 0x70</text>
+<rect x="775" y="335" width="10" height="10" rx="2" fill="#ffffff" stroke="#2a78d6" stroke-width="2.4" class-="pin" data-net="SDA" data-comp="tca"/>
+<text x="789" y="344" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="SDA" data-comp="tca">SDA</text>
+<rect x="775" y="375" width="10" height="10" rx="2" fill="#ffffff" stroke="#159a6a" stroke-width="2.4" class-="pin" data-net="SCL" data-comp="tca"/>
+<text x="789" y="384" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="SCL" data-comp="tca">SCL</text>
+<rect x="775" y="455" width="10" height="10" rx="2" fill="#ffffff" stroke="#d0342c" stroke-width="2.4" class-="pin" data-net="5V" data-comp="tca"/>
+<text x="789" y="464" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="5V" data-comp="tca">VIN</text>
+<rect x="775" y="495" width="10" height="10" rx="2" fill="#ffffff" stroke="#2b2b2b" stroke-width="2.4" class-="pin" data-net="GND" data-comp="tca"/>
+<text x="789" y="504" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="GND" data-comp="tca">GND</text>
+<rect x="775" y="535" width="10" height="10" rx="2" fill="#ffffff" stroke="#2b2b2b" stroke-width="2.4" class-="pin" data-net="GND" data-comp="tca"/>
+<text x="789" y="544" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="GND" data-comp="tca">A0–A2</text>
+<rect x="975" y="325" width="10" height="10" rx="2" fill="#ffffff" stroke="#2a78d6" stroke-width="2.4" class-="pin" data-net="SD0" data-comp="tca"/>
+<text x="971" y="334" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="SD0" data-comp="tca">SD0</text>
+<rect x="975" y="355" width="10" height="10" rx="2" fill="#ffffff" stroke="#159a6a" stroke-width="2.4" class-="pin" data-net="SC0" data-comp="tca"/>
+<text x="971" y="364" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="SC0" data-comp="tca">SC0</text>
+<rect x="975" y="405" width="10" height="10" rx="2" fill="#ffffff" stroke="#2a78d6" stroke-width="2.4" class-="pin" data-net="SD1" data-comp="tca"/>
+<text x="971" y="414" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="SD1" data-comp="tca">SD1</text>
+<rect x="975" y="435" width="10" height="10" rx="2" fill="#ffffff" stroke="#159a6a" stroke-width="2.4" class-="pin" data-net="SC1" data-comp="tca"/>
+<text x="971" y="444" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="SC1" data-comp="tca">SC1</text>
+<rect x="975" y="485" width="10" height="10" rx="2" fill="#ffffff" stroke="#2a78d6" stroke-width="2.4" class-="pin" data-net="SD2" data-comp="tca"/>
+<text x="971" y="494" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="SD2" data-comp="tca">SD2</text>
+<rect x="975" y="515" width="10" height="10" rx="2" fill="#ffffff" stroke="#159a6a" stroke-width="2.4" class-="pin" data-net="SC2" data-comp="tca"/>
+<text x="971" y="524" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="SC2" data-comp="tca">SC2</text>
+<rect x="975" y="565" width="10" height="10" rx="2" fill="#ffffff" stroke="#2a78d6" stroke-width="2.4" class-="pin" data-net="SD3" data-comp="tca"/>
+<text x="971" y="574" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="SD3" data-comp="tca">SD3</text>
+<rect x="975" y="595" width="10" height="10" rx="2" fill="#ffffff" stroke="#159a6a" stroke-width="2.4" class-="pin" data-net="SC3" data-comp="tca"/>
+<text x="971" y="604" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="SC3" data-comp="tca">SC3</text>
+<rect x="975" y="645" width="10" height="10" rx="2" fill="#ffffff" stroke="#2a78d6" stroke-width="2.4" class-="pin" data-net="SD4" data-comp="tca"/>
+<text x="971" y="654" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="SD4" data-comp="tca">SD4</text>
+<rect x="975" y="675" width="10" height="10" rx="2" fill="#ffffff" stroke="#159a6a" stroke-width="2.4" class-="pin" data-net="SC4" data-comp="tca"/>
+<text x="971" y="684" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="SC4" data-comp="tca">SC4</text>
+<rect x="1110" y="240" width="150" height="160" rx="10" fill="#fbf5e9" stroke="#a87a2a" stroke-width="2" class-="comp" data-comp="lvl"/>
+<text x="1185.0" y="270" font-size="15" font-weight="bold" text-anchor="middle" fill="#1d2229" class-="label" data-comp="lvl">Level shifter</text>
+<text x="1185.0" y="290" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="lvl">5 V ↔ 3.3 V</text>
+<rect x="1105" y="305" width="10" height="10" rx="2" fill="#ffffff" stroke="#2a78d6" stroke-width="2.4" class-="pin" data-net="SD1" data-comp="lvl"/>
+<text x="1119" y="314" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="SD1" data-comp="lvl">HV1</text>
+<rect x="1105" y="335" width="10" height="10" rx="2" fill="#ffffff" stroke="#159a6a" stroke-width="2.4" class-="pin" data-net="SC1" data-comp="lvl"/>
+<text x="1119" y="344" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="SC1" data-comp="lvl">HV2</text>
+<rect x="1255" y="305" width="10" height="10" rx="2" fill="#ffffff" stroke="#2a78d6" stroke-width="2.4" class-="pin" data-net="LSDA" data-comp="lvl"/>
+<text x="1251" y="314" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="LSDA" data-comp="lvl">LV1</text>
+<rect x="1255" y="335" width="10" height="10" rx="2" fill="#ffffff" stroke="#159a6a" stroke-width="2.4" class-="pin" data-net="LSCL" data-comp="lvl"/>
+<text x="1251" y="344" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="LSCL" data-comp="lvl">LV2</text>
+<rect x="1135" y="395" width="10" height="10" rx="2" fill="#ffffff" stroke="#d0342c" stroke-width="2.4" class-="pin" data-net="5V" data-comp="lvl"/>
+<text x="1140" y="391" font-size="11" text-anchor="middle" fill="#1d2229" class-="label" data-net="5V" data-comp="lvl">HV</text>
+<rect x="1180" y="395" width="10" height="10" rx="2" fill="#ffffff" stroke="#2b2b2b" stroke-width="2.4" class-="pin" data-net="GND" data-comp="lvl"/>
+<text x="1185" y="391" font-size="11" text-anchor="middle" fill="#1d2229" class-="label" data-net="GND" data-comp="lvl">GND</text>
+<rect x="1225" y="395" width="10" height="10" rx="2" fill="#ffffff" stroke="#e07b00" stroke-width="2.4" class-="pin" data-net="3V3" data-comp="lvl"/>
+<text x="1230" y="391" font-size="11" text-anchor="middle" fill="#1d2229" class-="label" data-net="3V3" data-comp="lvl">LV</text>
+<rect x="1340" y="90" width="310" height="150" rx="10" fill="#f7f8fa" stroke="#5b6573" stroke-width="2" class-="comp" data-comp="pms"/>
+<text x="1495.0" y="146.0" font-size="15" font-weight="bold" text-anchor="middle" fill="#1d2229" class-="label" data-comp="pms">PMSA003I</text>
+<text x="1495.0" y="166.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="pms">Particulate matter</text>
+<text x="1495.0" y="182.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="pms">0x12 · channel 0</text>
+<text x="1495.0" y="198.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="pms">fan needs 5 V</text>
+<rect x="1335" y="120" width="10" height="10" rx="2" fill="#ffffff" stroke="#e2622a" stroke-width="2.4" class-="pin" data-net="D6" data-comp="pms"/>
+<text x="1349" y="129" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="D6" data-comp="pms">SET</text>
+<rect x="1335" y="160" width="10" height="10" rx="2" fill="#ffffff" stroke="#2a78d6" stroke-width="2.4" class-="pin" data-net="SD0" data-comp="pms"/>
+<text x="1349" y="169" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="SD0" data-comp="pms">SDA</text>
+<rect x="1335" y="190" width="10" height="10" rx="2" fill="#ffffff" stroke="#159a6a" stroke-width="2.4" class-="pin" data-net="SC0" data-comp="pms"/>
+<text x="1349" y="199" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="SC0" data-comp="pms">SCL</text>
+<rect x="1645" y="140" width="10" height="10" rx="2" fill="#ffffff" stroke="#d0342c" stroke-width="2.4" class-="pin" data-net="5V" data-comp="pms"/>
+<text x="1641" y="149" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="5V" data-comp="pms">VIN</text>
+<rect x="1645" y="180" width="10" height="10" rx="2" fill="#ffffff" stroke="#2b2b2b" stroke-width="2.4" class-="pin" data-net="GND" data-comp="pms"/>
+<text x="1641" y="189" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="GND" data-comp="pms">GND</text>
+<rect x="1340" y="270" width="310" height="110" rx="10" fill="#f7f8fa" stroke="#5b6573" stroke-width="2" class-="comp" data-comp="bme"/>
+<text x="1495.0" y="306.0" font-size="15" font-weight="bold" text-anchor="middle" fill="#1d2229" class-="label" data-comp="bme">BME280</text>
+<text x="1495.0" y="326.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="bme">Temp. / humidity / pressure</text>
+<text x="1495.0" y="342.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="bme">0x76 · channel 1</text>
+<text x="1495.0" y="358.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="bme">3.3 V only</text>
+<rect x="1335" y="305" width="10" height="10" rx="2" fill="#ffffff" stroke="#2a78d6" stroke-width="2.4" class-="pin" data-net="LSDA" data-comp="bme"/>
+<text x="1349" y="314" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="LSDA" data-comp="bme">SDA</text>
+<rect x="1335" y="335" width="10" height="10" rx="2" fill="#ffffff" stroke="#159a6a" stroke-width="2.4" class-="pin" data-net="LSCL" data-comp="bme"/>
+<text x="1349" y="344" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="LSCL" data-comp="bme">SCL</text>
+<rect x="1645" y="305" width="10" height="10" rx="2" fill="#ffffff" stroke="#e07b00" stroke-width="2.4" class-="pin" data-net="3V3" data-comp="bme"/>
+<text x="1641" y="314" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="3V3" data-comp="bme">VIN</text>
+<rect x="1645" y="340" width="10" height="10" rx="2" fill="#ffffff" stroke="#2b2b2b" stroke-width="2.4" class-="pin" data-net="GND" data-comp="bme"/>
+<text x="1641" y="349" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="GND" data-comp="bme">GND</text>
+<rect x="1340" y="450" width="310" height="110" rx="10" fill="#f7f8fa" stroke="#5b6573" stroke-width="2" class-="comp" data-comp="uv"/>
+<text x="1495.0" y="486.0" font-size="15" font-weight="bold" text-anchor="middle" fill="#1d2229" class-="label" data-comp="uv">SEN0636 UV</text>
+<text x="1495.0" y="506.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="uv">UV index</text>
+<text x="1495.0" y="522.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="uv">0x23 · channel 2</text>
+<text x="1495.0" y="538.0" font-size="12" text-anchor="middle" fill="#0f6e8c" class-="label" data-comp="uv">sky-facing (quartz window)</text>
+<rect x="1335" y="485" width="10" height="10" rx="2" fill="#ffffff" stroke="#2a78d6" stroke-width="2.4" class-="pin" data-net="SD2" data-comp="uv"/>
+<text x="1349" y="494" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="SD2" data-comp="uv">D/R (SDA)</text>
+<rect x="1335" y="515" width="10" height="10" rx="2" fill="#ffffff" stroke="#159a6a" stroke-width="2.4" class-="pin" data-net="SC2" data-comp="uv"/>
+<text x="1349" y="524" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="SC2" data-comp="uv">C/T (SCL)</text>
+<rect x="1645" y="485" width="10" height="10" rx="2" fill="#ffffff" stroke="#d0342c" stroke-width="2.4" class-="pin" data-net="5V" data-comp="uv"/>
+<text x="1641" y="494" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="5V" data-comp="uv">VCC</text>
+<rect x="1645" y="520" width="10" height="10" rx="2" fill="#ffffff" stroke="#2b2b2b" stroke-width="2.4" class-="pin" data-net="GND" data-comp="uv"/>
+<text x="1641" y="529" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="GND" data-comp="uv">GND</text>
+<rect x="1340" y="600" width="310" height="110" rx="10" fill="#f7f8fa" stroke="#5b6573" stroke-width="2" class-="comp" data-comp="mlx"/>
+<text x="1495.0" y="636.0" font-size="15" font-weight="bold" text-anchor="middle" fill="#1d2229" class-="label" data-comp="mlx">MLX90614</text>
+<text x="1495.0" y="656.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="mlx">IR sky temperature</text>
+<text x="1495.0" y="672.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="mlx">0x5A · channel 3</text>
+<text x="1495.0" y="688.0" font-size="12" text-anchor="middle" fill="#0f6e8c" class-="label" data-comp="mlx">sky-facing (open view)</text>
+<rect x="1335" y="635" width="10" height="10" rx="2" fill="#ffffff" stroke="#2a78d6" stroke-width="2.4" class-="pin" data-net="SD3" data-comp="mlx"/>
+<text x="1349" y="644" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="SD3" data-comp="mlx">SDA</text>
+<rect x="1335" y="665" width="10" height="10" rx="2" fill="#ffffff" stroke="#159a6a" stroke-width="2.4" class-="pin" data-net="SC3" data-comp="mlx"/>
+<text x="1349" y="674" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="SC3" data-comp="mlx">SCL</text>
+<rect x="1645" y="635" width="10" height="10" rx="2" fill="#ffffff" stroke="#d0342c" stroke-width="2.4" class-="pin" data-net="5V" data-comp="mlx"/>
+<text x="1641" y="644" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="5V" data-comp="mlx">VIN</text>
+<rect x="1645" y="670" width="10" height="10" rx="2" fill="#ffffff" stroke="#2b2b2b" stroke-width="2.4" class-="pin" data-net="GND" data-comp="mlx"/>
+<text x="1641" y="679" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="GND" data-comp="mlx">GND</text>
+<rect x="1340" y="750" width="310" height="110" rx="10" fill="#f7f8fa" stroke="#5b6573" stroke-width="2" class-="comp" data-comp="tsl"/>
+<text x="1495.0" y="786.0" font-size="15" font-weight="bold" text-anchor="middle" fill="#1d2229" class-="label" data-comp="tsl">TSL2591</text>
+<text x="1495.0" y="806.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="tsl">Illuminance</text>
+<text x="1495.0" y="822.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="tsl">0x29 · channel 4</text>
+<text x="1495.0" y="838.0" font-size="12" text-anchor="middle" fill="#0f6e8c" class-="label" data-comp="tsl">sky-facing</text>
+<rect x="1335" y="785" width="10" height="10" rx="2" fill="#ffffff" stroke="#2a78d6" stroke-width="2.4" class-="pin" data-net="SD4" data-comp="tsl"/>
+<text x="1349" y="794" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="SD4" data-comp="tsl">SDA</text>
+<rect x="1335" y="815" width="10" height="10" rx="2" fill="#ffffff" stroke="#159a6a" stroke-width="2.4" class-="pin" data-net="SC4" data-comp="tsl"/>
+<text x="1349" y="824" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="SC4" data-comp="tsl">SCL</text>
+<rect x="1645" y="785" width="10" height="10" rx="2" fill="#ffffff" stroke="#d0342c" stroke-width="2.4" class-="pin" data-net="5V" data-comp="tsl"/>
+<text x="1641" y="794" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="5V" data-comp="tsl">VCC</text>
+<rect x="1645" y="820" width="10" height="10" rx="2" fill="#ffffff" stroke="#2b2b2b" stroke-width="2.4" class-="pin" data-net="GND" data-comp="tsl"/>
+<text x="1641" y="829" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="GND" data-comp="tsl">GND</text>
+<rect x="60" y="820" width="200" height="130" rx="10" fill="#f7f8fa" stroke="#5b6573" stroke-width="2" class-="comp" data-comp="reed"/>
+<text x="160.0" y="872.0" font-size="15" font-weight="bold" text-anchor="middle" fill="#1d2229" class-="label" data-comp="reed">Rain gauge</text>
+<text x="160.0" y="892.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="reed">reed module</text>
+<text x="160.0" y="908.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="reed">pull-up on module</text>
+<text x="160.0" y="924.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="reed">1.25 mm per tip</text>
+<rect x="195" y="815" width="10" height="10" rx="2" fill="#ffffff" stroke="#4a3aa7" stroke-width="2.4" class-="pin" data-net="D2" data-comp="reed"/>
+<text x="200" y="838" font-size="11" text-anchor="middle" fill="#1d2229" class-="label" data-net="D2" data-comp="reed">OUT</text>
+<rect x="115" y="945" width="10" height="10" rx="2" fill="#ffffff" stroke="#d0342c" stroke-width="2.4" class-="pin" data-net="5V" data-comp="reed"/>
+<text x="120" y="941" font-size="11" text-anchor="middle" fill="#1d2229" class-="label" data-net="5V" data-comp="reed">VCC</text>
+<rect x="195" y="945" width="10" height="10" rx="2" fill="#ffffff" stroke="#2b2b2b" stroke-width="2.4" class-="pin" data-net="GND" data-comp="reed"/>
+<text x="200" y="941" font-size="11" text-anchor="middle" fill="#1d2229" class-="label" data-net="GND" data-comp="reed">GND</text>
+<rect x="300" y="820" width="200" height="130" rx="10" fill="#f7f8fa" stroke="#5b6573" stroke-width="2" class-="comp" data-comp="wind"/>
+<text x="400.0" y="880.0" font-size="15" font-weight="bold" text-anchor="middle" fill="#1d2229" class-="label" data-comp="wind">Anemometer</text>
+<text x="400.0" y="900.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="wind">Hall sensor</text>
+<text x="400.0" y="916.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="wind">pulses → interrupt</text>
+<rect x="415" y="815" width="10" height="10" rx="2" fill="#ffffff" stroke="#c2457a" stroke-width="2.4" class-="pin" data-net="D3" data-comp="wind"/>
+<text x="420" y="838" font-size="11" text-anchor="middle" fill="#1d2229" class-="label" data-net="D3" data-comp="wind">SIG</text>
+<rect x="355" y="945" width="10" height="10" rx="2" fill="#ffffff" stroke="#d0342c" stroke-width="2.4" class-="pin" data-net="5V" data-comp="wind"/>
+<text x="360" y="941" font-size="11" text-anchor="middle" fill="#1d2229" class-="label" data-net="5V" data-comp="wind">VCC</text>
+<rect x="435" y="945" width="10" height="10" rx="2" fill="#ffffff" stroke="#2b2b2b" stroke-width="2.4" class-="pin" data-net="GND" data-comp="wind"/>
+<text x="440" y="941" font-size="11" text-anchor="middle" fill="#1d2229" class-="label" data-net="GND" data-comp="wind">GND</text>
+<rect x="540" y="820" width="230" height="130" rx="10" fill="#f7f8fa" stroke="#5b6573" stroke-width="2" class-="comp" data-comp="drop"/>
+<text x="655.0" y="888.0" font-size="15" font-weight="bold" text-anchor="middle" fill="#1d2229" class-="label" data-comp="drop">Rain drop sensor</text>
+<text x="655.0" y="908.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="drop">module with comparator</text>
+<rect x="595" y="815" width="10" height="10" rx="2" fill="#ffffff" stroke="#b07a00" stroke-width="2.4" class-="pin" data-net="D5" data-comp="drop"/>
+<text x="600" y="838" font-size="11" text-anchor="middle" fill="#1d2229" class-="label" data-net="D5" data-comp="drop">DO</text>
+<rect x="655" y="815" width="10" height="10" rx="2" fill="#ffffff" stroke="#2f7d1f" stroke-width="2.4" class-="pin" data-net="A1" data-comp="drop"/>
+<text x="660" y="838" font-size="11" text-anchor="middle" fill="#1d2229" class-="label" data-net="A1" data-comp="drop">AO</text>
+<rect x="615" y="945" width="10" height="10" rx="2" fill="#ffffff" stroke="#d0342c" stroke-width="2.4" class-="pin" data-net="5V" data-comp="drop"/>
+<text x="620" y="941" font-size="11" text-anchor="middle" fill="#1d2229" class-="label" data-net="5V" data-comp="drop">VCC</text>
+<rect x="695" y="945" width="10" height="10" rx="2" fill="#ffffff" stroke="#2b2b2b" stroke-width="2.4" class-="pin" data-net="GND" data-comp="drop"/>
+<text x="700" y="941" font-size="11" text-anchor="middle" fill="#1d2229" class-="label" data-net="GND" data-comp="drop">GND</text>
+<g class-="flag" data-net="GND" data-comp="psu"><line x1="135" y1="350" x2="135" y2="372" stroke="#2b2b2b" stroke-width="2.4"/><line x1="126" y1="372" x2="144" y2="372" stroke="#2b2b2b" stroke-width="2.4"/><line x1="129" y1="375" x2="141" y2="375" stroke="#2b2b2b" stroke-width="2.4"/><line x1="132" y1="378" x2="138" y2="378" stroke="#2b2b2b" stroke-width="2.4"/></g>
+<g class-="flag" data-net="5V" data-comp="r4"><line x1="330" y1="325" x2="308" y2="325" stroke="#d0342c" stroke-width="2.4"/><rect x="274" y="316.0" width="34" height="18" rx="4" fill="#ffffff" stroke="#d0342c" stroke-width="1.8"/><text x="291.0" y="329.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#d0342c">5V</text></g>
+<g class-="flag" data-net="3V3" data-comp="r4"><line x1="330" y1="375" x2="308" y2="375" stroke="#e07b00" stroke-width="2.4"/><rect x="274" y="366.0" width="34" height="18" rx="4" fill="#ffffff" stroke="#e07b00" stroke-width="1.8"/><text x="291.0" y="379.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#e07b00">3V3</text></g>
+<g class-="flag" data-net="GND" data-comp="r4"><line x1="330" y1="425" x2="308" y2="425" stroke="#2b2b2b" stroke-width="2.4"/><line x1="308" y1="425" x2="308" y2="433" stroke="#2b2b2b" stroke-width="2.4"/><line x1="299" y1="433" x2="317" y2="433" stroke="#2b2b2b" stroke-width="2.4"/><line x1="302" y1="436" x2="314" y2="436" stroke="#2b2b2b" stroke-width="2.4"/><line x1="305" y1="439" x2="311" y2="439" stroke="#2b2b2b" stroke-width="2.4"/></g>
+<g class-="flag" data-net="5V" data-comp="tca"><line x1="780" y1="460" x2="758" y2="460" stroke="#d0342c" stroke-width="2.4"/><rect x="724" y="451.0" width="34" height="18" rx="4" fill="#ffffff" stroke="#d0342c" stroke-width="1.8"/><text x="741.0" y="464.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#d0342c">5V</text></g>
+<g class-="flag" data-net="GND" data-comp="tca"><line x1="780" y1="500" x2="758" y2="500" stroke="#2b2b2b" stroke-width="2.4"/><line x1="758" y1="500" x2="758" y2="508" stroke="#2b2b2b" stroke-width="2.4"/><line x1="749" y1="508" x2="767" y2="508" stroke="#2b2b2b" stroke-width="2.4"/><line x1="752" y1="511" x2="764" y2="511" stroke="#2b2b2b" stroke-width="2.4"/><line x1="755" y1="514" x2="761" y2="514" stroke="#2b2b2b" stroke-width="2.4"/></g>
+<g class-="flag" data-net="GND" data-comp="tca"><line x1="780" y1="540" x2="758" y2="540" stroke="#2b2b2b" stroke-width="2.4"/><line x1="758" y1="540" x2="758" y2="548" stroke="#2b2b2b" stroke-width="2.4"/><line x1="749" y1="548" x2="767" y2="548" stroke="#2b2b2b" stroke-width="2.4"/><line x1="752" y1="551" x2="764" y2="551" stroke="#2b2b2b" stroke-width="2.4"/><line x1="755" y1="554" x2="761" y2="554" stroke="#2b2b2b" stroke-width="2.4"/></g>
+<g class-="flag" data-net="5V" data-comp="lvl"><line x1="1140" y1="400" x2="1140" y2="422" stroke="#d0342c" stroke-width="2.4"/><rect x="1123.0" y="422" width="34" height="18" rx="4" fill="#ffffff" stroke="#d0342c" stroke-width="1.8"/><text x="1140.0" y="435.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#d0342c">5V</text></g>
+<g class-="flag" data-net="GND" data-comp="lvl"><line x1="1185" y1="400" x2="1185" y2="422" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1176" y1="422" x2="1194" y2="422" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1179" y1="425" x2="1191" y2="425" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1182" y1="428" x2="1188" y2="428" stroke="#2b2b2b" stroke-width="2.4"/></g>
+<g class-="flag" data-net="3V3" data-comp="lvl"><line x1="1230" y1="400" x2="1230" y2="422" stroke="#e07b00" stroke-width="2.4"/><rect x="1213.0" y="422" width="34" height="18" rx="4" fill="#ffffff" stroke="#e07b00" stroke-width="1.8"/><text x="1230.0" y="435.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#e07b00">3V3</text></g>
+<g class-="flag" data-net="5V" data-comp="pms"><line x1="1650" y1="145" x2="1672" y2="145" stroke="#d0342c" stroke-width="2.4"/><rect x="1672" y="136.0" width="34" height="18" rx="4" fill="#ffffff" stroke="#d0342c" stroke-width="1.8"/><text x="1689.0" y="149.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#d0342c">5V</text></g>
+<g class-="flag" data-net="GND" data-comp="pms"><line x1="1650" y1="185" x2="1672" y2="185" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1672" y1="185" x2="1672" y2="193" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1663" y1="193" x2="1681" y2="193" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1666" y1="196" x2="1678" y2="196" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1669" y1="199" x2="1675" y2="199" stroke="#2b2b2b" stroke-width="2.4"/></g>
+<g class-="flag" data-net="3V3" data-comp="bme"><line x1="1650" y1="310" x2="1672" y2="310" stroke="#e07b00" stroke-width="2.4"/><rect x="1672" y="301.0" width="34" height="18" rx="4" fill="#ffffff" stroke="#e07b00" stroke-width="1.8"/><text x="1689.0" y="314.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#e07b00">3V3</text></g>
+<g class-="flag" data-net="GND" data-comp="bme"><line x1="1650" y1="345" x2="1672" y2="345" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1672" y1="345" x2="1672" y2="353" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1663" y1="353" x2="1681" y2="353" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1666" y1="356" x2="1678" y2="356" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1669" y1="359" x2="1675" y2="359" stroke="#2b2b2b" stroke-width="2.4"/></g>
+<g class-="flag" data-net="5V" data-comp="uv"><line x1="1650" y1="490" x2="1672" y2="490" stroke="#d0342c" stroke-width="2.4"/><rect x="1672" y="481.0" width="34" height="18" rx="4" fill="#ffffff" stroke="#d0342c" stroke-width="1.8"/><text x="1689.0" y="494.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#d0342c">5V</text></g>
+<g class-="flag" data-net="GND" data-comp="uv"><line x1="1650" y1="525" x2="1672" y2="525" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1672" y1="525" x2="1672" y2="533" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1663" y1="533" x2="1681" y2="533" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1666" y1="536" x2="1678" y2="536" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1669" y1="539" x2="1675" y2="539" stroke="#2b2b2b" stroke-width="2.4"/></g>
+<g class-="flag" data-net="5V" data-comp="mlx"><line x1="1650" y1="640" x2="1672" y2="640" stroke="#d0342c" stroke-width="2.4"/><rect x="1672" y="631.0" width="34" height="18" rx="4" fill="#ffffff" stroke="#d0342c" stroke-width="1.8"/><text x="1689.0" y="644.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#d0342c">5V</text></g>
+<g class-="flag" data-net="GND" data-comp="mlx"><line x1="1650" y1="675" x2="1672" y2="675" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1672" y1="675" x2="1672" y2="683" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1663" y1="683" x2="1681" y2="683" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1666" y1="686" x2="1678" y2="686" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1669" y1="689" x2="1675" y2="689" stroke="#2b2b2b" stroke-width="2.4"/></g>
+<g class-="flag" data-net="5V" data-comp="tsl"><line x1="1650" y1="790" x2="1672" y2="790" stroke="#d0342c" stroke-width="2.4"/><rect x="1672" y="781.0" width="34" height="18" rx="4" fill="#ffffff" stroke="#d0342c" stroke-width="1.8"/><text x="1689.0" y="794.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#d0342c">5V</text></g>
+<g class-="flag" data-net="GND" data-comp="tsl"><line x1="1650" y1="825" x2="1672" y2="825" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1672" y1="825" x2="1672" y2="833" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1663" y1="833" x2="1681" y2="833" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1666" y1="836" x2="1678" y2="836" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1669" y1="839" x2="1675" y2="839" stroke="#2b2b2b" stroke-width="2.4"/></g>
+<g class-="flag" data-net="5V" data-comp="reed"><line x1="120" y1="950" x2="120" y2="972" stroke="#d0342c" stroke-width="2.4"/><rect x="103.0" y="972" width="34" height="18" rx="4" fill="#ffffff" stroke="#d0342c" stroke-width="1.8"/><text x="120.0" y="985.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#d0342c">5V</text></g>
+<g class-="flag" data-net="GND" data-comp="reed"><line x1="200" y1="950" x2="200" y2="972" stroke="#2b2b2b" stroke-width="2.4"/><line x1="191" y1="972" x2="209" y2="972" stroke="#2b2b2b" stroke-width="2.4"/><line x1="194" y1="975" x2="206" y2="975" stroke="#2b2b2b" stroke-width="2.4"/><line x1="197" y1="978" x2="203" y2="978" stroke="#2b2b2b" stroke-width="2.4"/></g>
+<g class-="flag" data-net="5V" data-comp="wind"><line x1="360" y1="950" x2="360" y2="972" stroke="#d0342c" stroke-width="2.4"/><rect x="343.0" y="972" width="34" height="18" rx="4" fill="#ffffff" stroke="#d0342c" stroke-width="1.8"/><text x="360.0" y="985.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#d0342c">5V</text></g>
+<g class-="flag" data-net="GND" data-comp="wind"><line x1="440" y1="950" x2="440" y2="972" stroke="#2b2b2b" stroke-width="2.4"/><line x1="431" y1="972" x2="449" y2="972" stroke="#2b2b2b" stroke-width="2.4"/><line x1="434" y1="975" x2="446" y2="975" stroke="#2b2b2b" stroke-width="2.4"/><line x1="437" y1="978" x2="443" y2="978" stroke="#2b2b2b" stroke-width="2.4"/></g>
+<g class-="flag" data-net="5V" data-comp="drop"><line x1="620" y1="950" x2="620" y2="972" stroke="#d0342c" stroke-width="2.4"/><rect x="603.0" y="972" width="34" height="18" rx="4" fill="#ffffff" stroke="#d0342c" stroke-width="1.8"/><text x="620.0" y="985.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#d0342c">5V</text></g>
+<g class-="flag" data-net="GND" data-comp="drop"><line x1="700" y1="950" x2="700" y2="972" stroke="#2b2b2b" stroke-width="2.4"/><line x1="691" y1="972" x2="709" y2="972" stroke="#2b2b2b" stroke-width="2.4"/><line x1="694" y1="975" x2="706" y2="975" stroke="#2b2b2b" stroke-width="2.4"/><line x1="697" y1="978" x2="703" y2="978" stroke="#2b2b2b" stroke-width="2.4"/></g>
+<text x="800" y="905" font-size="14" font-weight="bold" text-anchor="start" fill="#1d2229" class-="label">Legend</text>
+<g class-="flag" data-net="5V"><line x1="806" y1="929" x2="820" y2="929" stroke="#d0342c" stroke-width="2.4"/><rect x="820" y="920.0" width="34" height="18" rx="4" fill="#ffffff" stroke="#d0342c" stroke-width="1.8"/><text x="837.0" y="933.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#d0342c">5V</text></g>
+<text x="870" y="933" font-size="12" text-anchor="start" fill="#1d2229" class-="label" data-net="5V">5 V rail</text>
+<g class-="flag" data-net="3V3"><line x1="806" y1="953" x2="820" y2="953" stroke="#e07b00" stroke-width="2.4"/><rect x="820" y="944.0" width="34" height="18" rx="4" fill="#ffffff" stroke="#e07b00" stroke-width="1.8"/><text x="837.0" y="957.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#e07b00">3V3</text></g>
+<text x="870" y="957" font-size="12" text-anchor="start" fill="#1d2229" class-="label" data-net="3V3">3.3 V</text>
+<g class-="flag" data-net="GND"><line x1="806" y1="977" x2="820" y2="977" stroke="#2b2b2b" stroke-width="2.4"/><line x1="820" y1="977" x2="820" y2="985" stroke="#2b2b2b" stroke-width="2.4"/><line x1="811" y1="985" x2="829" y2="985" stroke="#2b2b2b" stroke-width="2.4"/><line x1="814" y1="988" x2="826" y2="988" stroke="#2b2b2b" stroke-width="2.4"/><line x1="817" y1="991" x2="823" y2="991" stroke="#2b2b2b" stroke-width="2.4"/></g>
+<text x="870" y="981" font-size="12" text-anchor="start" fill="#1d2229" class-="label" data-net="GND">GND</text>
+<polyline points="1025,929 1069,929" fill="none" stroke="#8e2b2b" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="VIN"/>
+<text x="1095" y="933" font-size="12" text-anchor="start" fill="#1d2229" class-="label" data-net="VIN">VIN 6–24 V</text>
+<polyline points="1025,953 1069,953" fill="none" stroke="#2a78d6" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="SDA"/>
+<text x="1095" y="957" font-size="12" text-anchor="start" fill="#1d2229" class-="label" data-net="SDA">I²C SDA (all buses)</text>
+<polyline points="1025,977 1069,977" fill="none" stroke="#159a6a" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="SCL"/>
+<text x="1095" y="981" font-size="12" text-anchor="start" fill="#1d2229" class-="label" data-net="SCL">I²C SCL (all buses)</text>
+<polyline points="1250,929 1294,929" fill="none" stroke="#4a3aa7" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="D2"/>
+<text x="1320" y="933" font-size="12" text-anchor="start" fill="#1d2229" class-="label" data-net="D2">D2 rain gauge</text>
+<polyline points="1250,953 1294,953" fill="none" stroke="#c2457a" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="D3"/>
+<text x="1320" y="957" font-size="12" text-anchor="start" fill="#1d2229" class-="label" data-net="D3">D3 anemometer</text>
+<polyline points="1250,977 1294,977" fill="none" stroke="#b07a00" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="D5"/>
+<text x="1320" y="981" font-size="12" text-anchor="start" fill="#1d2229" class-="label" data-net="D5">D5 rain drop (digital)</text>
+<polyline points="1475,929 1519,929" fill="none" stroke="#2f7d1f" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="A1"/>
+<text x="1545" y="933" font-size="12" text-anchor="start" fill="#1d2229" class-="label" data-net="A1">A1 rain drop (analog)</text>
+<polyline points="1475,953 1519,953" fill="none" stroke="#e2622a" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="D6"/>
+<text x="1545" y="957" font-size="12" text-anchor="start" fill="#1d2229" class-="label" data-net="D6">D6 PMSA003I SET</text>
+<polyline points="1475,977 1519,977" fill="none" stroke="#795548" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="D4"/>
+<text x="1545" y="981" font-size="12" text-anchor="start" fill="#1d2229" class-="label" data-net="D4">D4 → RESET</text>
+<text x="40" y="1035" font-size="14" font-weight="bold" text-anchor="start" fill="#1d2229" class-="label">Notes</text>
+<text x="40" y="1057" font-size="12" text-anchor="start" fill="#1d2229" class-="label">•  Power is drawn as net labels: all pins labelled 5V, 3V3 or GND are connected to that rail.</text>
+<text x="40" y="1076" font-size="12" text-anchor="start" fill="#1d2229" class-="label">•  TCA9548A and all sensors except BME280 run on 5 V (UNO R4 has 5 V logic on A4/A5; PMSA003I fan needs 5 V).</text>
+<text x="40" y="1095" font-size="12" text-anchor="start" fill="#1d2229" class-="label">•  BME280 is 3.3 V only: connected through the level shifter on channel 1.</text>
+<text x="40" y="1114" font-size="12" text-anchor="start" fill="#1d2229" class-="label">•  D4 → RESET for the hourly self-reset: firmware keeps D4 an input and only pulls it LOW to reset. D8–D12 are free.</text>
+<text x="40" y="1133" font-size="12" text-anchor="start" fill="#1d2229" class-="label">•  Bulk capacitor on the 5 V rail and 100 nF at every module recommended (PMSA003I fan, WiFi bursts).</text>
+</svg>
