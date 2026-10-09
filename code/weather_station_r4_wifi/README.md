@@ -5,7 +5,7 @@ All-in-one variant: **one board** reads all sensors and uploads directly to the 
 ## Architecture
 
 ```
-[Sensors + TCA9548A] ──I2C/GPIO──► [UNO R4 WiFi] ──HTTPS──► [Django API / Website]
+[Sensors + PCA9548] ──I2C/GPIO──► [UNO R4 WiFi] ──HTTPS──► [Django API / Website]
 ```
 
 Compared to the classic setup:
@@ -27,11 +27,11 @@ Compared to the classic setup:
 
 ### Sensors (unchanged)
 
-Same sensors and TCA9548A multiplexer as the classic sender. Pin mapping is identical to `weather_station.ino`.
+Same sensors and channel assignment as the classic sender; pin mapping is identical to `weather_station.ino`. The multiplexer is an Adafruit PCA9548 STEMMA QT board (TCA9548A compatible, same address 0x70, no firmware change) on the header I2C bus with V+ = 5 V and its Vlogic switch on 3.3 V, so it also supplies all I2C sensors with 3.3 V. Do not use the R4's Qwiic port for it: that is a separate 3.3 V-only bus (`Wire1`).
 
 | Pin | Function |
 |-----|----------|
-| A4 (SDA), A5 (SCL) | I2C → TCA9548A |
+| A4 (SDA), A5 (SCL) | I2C → PCA9548 (header bus `Wire`, 5 V logic) |
 | D2 | Rain reed (tipping bucket) |
 | D3 | Anemometer (interrupt) |
 | D4 | → RESET pin: hourly self-reset (input during operation, output LOW to reset) |

@@ -10,10 +10,8 @@
 <polyline points="535,660 535,690 568,690 568,660" fill="none" stroke="#795548" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="D4"/>
 <polyline points="980,330 1000,330 1000,165 1340,165" fill="none" stroke="#2a78d6" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="SD0"/>
 <polyline points="980,360 1012,360 1012,195 1340,195" fill="none" stroke="#159a6a" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="SC0"/>
-<polyline points="980,410 1024,410 1024,310 1110,310" fill="none" stroke="#2a78d6" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="SD1"/>
-<polyline points="980,440 1036,440 1036,340 1110,340" fill="none" stroke="#159a6a" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="SC1"/>
-<polyline points="1260,310 1340,310" fill="none" stroke="#2a78d6" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="LSDA"/>
-<polyline points="1260,340 1340,340" fill="none" stroke="#159a6a" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="LSCL"/>
+<polyline points="980,410 1024,410 1024,310 1340,310" fill="none" stroke="#2a78d6" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="SD1"/>
+<polyline points="980,440 1036,440 1036,340 1340,340" fill="none" stroke="#159a6a" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="SC1"/>
 <polyline points="980,490 1340,490" fill="none" stroke="#2a78d6" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="SD2"/>
 <polyline points="980,520 1340,520" fill="none" stroke="#159a6a" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="SC2"/>
 <polyline points="980,570 1036,570 1036,640 1340,640" fill="none" stroke="#2a78d6" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="SD3"/>
@@ -43,10 +41,8 @@
 <text x="339" y="269" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="VIN" data-comp="r4">VIN</text>
 <rect x="325" y="320" width="10" height="10" rx="2" fill="#ffffff" stroke="#d0342c" stroke-width="2.4" class-="pin" data-net="5V" data-comp="r4"/>
 <text x="339" y="329" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="5V" data-comp="r4">5V</text>
-<rect x="325" y="370" width="10" height="10" rx="2" fill="#ffffff" stroke="#e07b00" stroke-width="2.4" class-="pin" data-net="3V3" data-comp="r4"/>
-<text x="339" y="379" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="3V3" data-comp="r4">3.3V</text>
-<rect x="325" y="420" width="10" height="10" rx="2" fill="#ffffff" stroke="#2b2b2b" stroke-width="2.4" class-="pin" data-net="GND" data-comp="r4"/>
-<text x="339" y="429" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="GND" data-comp="r4">GND</text>
+<rect x="325" y="380" width="10" height="10" rx="2" fill="#ffffff" stroke="#2b2b2b" stroke-width="2.4" class-="pin" data-net="GND" data-comp="r4"/>
+<text x="339" y="389" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="GND" data-comp="r4">GND</text>
 <rect x="585" y="265" width="10" height="10" rx="2" fill="#ffffff" stroke="#e2622a" stroke-width="2.4" class-="pin" data-net="D6" data-comp="r4"/>
 <text x="581" y="274" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="D6" data-comp="r4">D6</text>
 <rect x="585" y="335" width="10" height="10" rx="2" fill="#ffffff" stroke="#2a78d6" stroke-width="2.4" class-="pin" data-net="SDA" data-comp="r4"/>
@@ -66,19 +62,21 @@
 <rect x="563" y="655" width="10" height="10" rx="2" fill="#ffffff" stroke="#795548" stroke-width="2.4" class-="pin" data-net="D4" data-comp="r4"/>
 <text x="568" y="651" font-size="11" text-anchor="middle" fill="#1d2229" class-="label" data-net="D4" data-comp="r4">RESET</text>
 <rect x="780" y="300" width="200" height="400" rx="10" fill="#eef0f3" stroke="#5b6573" stroke-width="2" class-="comp" data-comp="tca"/>
-<text x="880.0" y="489.0" font-size="15" font-weight="bold" text-anchor="middle" fill="#1d2229" class-="label" data-comp="tca">TCA9548A</text>
-<text x="880.0" y="509.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="tca">I²C multiplexer</text>
-<text x="880.0" y="525.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="tca">address 0x70</text>
+<text x="880.0" y="562" font-size="15" font-weight="bold" text-anchor="middle" fill="#1d2229" class-="label" data-comp="tca">PCA9548</text>
+<text x="880.0" y="582" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="tca">I²C mux · 0x70</text>
+<text x="880.0" y="598" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="tca">Adafruit board</text>
+<text x="880.0" y="614" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="tca">V+ 5 V</text>
+<text x="880.0" y="630" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="tca">Vlogic 3.3 V</text>
 <rect x="775" y="335" width="10" height="10" rx="2" fill="#ffffff" stroke="#2a78d6" stroke-width="2.4" class-="pin" data-net="SDA" data-comp="tca"/>
 <text x="789" y="344" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="SDA" data-comp="tca">SDA</text>
 <rect x="775" y="375" width="10" height="10" rx="2" fill="#ffffff" stroke="#159a6a" stroke-width="2.4" class-="pin" data-net="SCL" data-comp="tca"/>
 <text x="789" y="384" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="SCL" data-comp="tca">SCL</text>
 <rect x="775" y="455" width="10" height="10" rx="2" fill="#ffffff" stroke="#d0342c" stroke-width="2.4" class-="pin" data-net="5V" data-comp="tca"/>
-<text x="789" y="464" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="5V" data-comp="tca">VIN</text>
+<text x="789" y="464" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="5V" data-comp="tca">V+</text>
 <rect x="775" y="495" width="10" height="10" rx="2" fill="#ffffff" stroke="#2b2b2b" stroke-width="2.4" class-="pin" data-net="GND" data-comp="tca"/>
 <text x="789" y="504" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="GND" data-comp="tca">GND</text>
-<rect x="775" y="535" width="10" height="10" rx="2" fill="#ffffff" stroke="#2b2b2b" stroke-width="2.4" class-="pin" data-net="GND" data-comp="tca"/>
-<text x="789" y="544" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="GND" data-comp="tca">A0–A2</text>
+<rect x="875" y="695" width="10" height="10" rx="2" fill="#ffffff" stroke="#e07b00" stroke-width="2.4" class-="pin" data-net="3V3" data-comp="tca"/>
+<text x="880" y="691" font-size="11" text-anchor="middle" fill="#1d2229" class-="label" data-net="3V3" data-comp="tca">3.3 V ports</text>
 <rect x="975" y="325" width="10" height="10" rx="2" fill="#ffffff" stroke="#2a78d6" stroke-width="2.4" class-="pin" data-net="SD0" data-comp="tca"/>
 <text x="971" y="334" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="SD0" data-comp="tca">SD0</text>
 <rect x="975" y="355" width="10" height="10" rx="2" fill="#ffffff" stroke="#159a6a" stroke-width="2.4" class-="pin" data-net="SC0" data-comp="tca"/>
@@ -99,47 +97,30 @@
 <text x="971" y="654" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="SD4" data-comp="tca">SD4</text>
 <rect x="975" y="675" width="10" height="10" rx="2" fill="#ffffff" stroke="#159a6a" stroke-width="2.4" class-="pin" data-net="SC4" data-comp="tca"/>
 <text x="971" y="684" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="SC4" data-comp="tca">SC4</text>
-<rect x="1110" y="240" width="150" height="160" rx="10" fill="#fbf5e9" stroke="#a87a2a" stroke-width="2" class-="comp" data-comp="lvl"/>
-<text x="1185.0" y="270" font-size="15" font-weight="bold" text-anchor="middle" fill="#1d2229" class-="label" data-comp="lvl">Level shifter</text>
-<text x="1185.0" y="290" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="lvl">5 V ↔ 3.3 V</text>
-<rect x="1105" y="305" width="10" height="10" rx="2" fill="#ffffff" stroke="#2a78d6" stroke-width="2.4" class-="pin" data-net="SD1" data-comp="lvl"/>
-<text x="1119" y="314" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="SD1" data-comp="lvl">HV1</text>
-<rect x="1105" y="335" width="10" height="10" rx="2" fill="#ffffff" stroke="#159a6a" stroke-width="2.4" class-="pin" data-net="SC1" data-comp="lvl"/>
-<text x="1119" y="344" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="SC1" data-comp="lvl">HV2</text>
-<rect x="1255" y="305" width="10" height="10" rx="2" fill="#ffffff" stroke="#2a78d6" stroke-width="2.4" class-="pin" data-net="LSDA" data-comp="lvl"/>
-<text x="1251" y="314" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="LSDA" data-comp="lvl">LV1</text>
-<rect x="1255" y="335" width="10" height="10" rx="2" fill="#ffffff" stroke="#159a6a" stroke-width="2.4" class-="pin" data-net="LSCL" data-comp="lvl"/>
-<text x="1251" y="344" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="LSCL" data-comp="lvl">LV2</text>
-<rect x="1135" y="395" width="10" height="10" rx="2" fill="#ffffff" stroke="#d0342c" stroke-width="2.4" class-="pin" data-net="5V" data-comp="lvl"/>
-<text x="1140" y="391" font-size="11" text-anchor="middle" fill="#1d2229" class-="label" data-net="5V" data-comp="lvl">HV</text>
-<rect x="1180" y="395" width="10" height="10" rx="2" fill="#ffffff" stroke="#2b2b2b" stroke-width="2.4" class-="pin" data-net="GND" data-comp="lvl"/>
-<text x="1185" y="391" font-size="11" text-anchor="middle" fill="#1d2229" class-="label" data-net="GND" data-comp="lvl">GND</text>
-<rect x="1225" y="395" width="10" height="10" rx="2" fill="#ffffff" stroke="#e07b00" stroke-width="2.4" class-="pin" data-net="3V3" data-comp="lvl"/>
-<text x="1230" y="391" font-size="11" text-anchor="middle" fill="#1d2229" class-="label" data-net="3V3" data-comp="lvl">LV</text>
 <rect x="1340" y="90" width="310" height="150" rx="10" fill="#f7f8fa" stroke="#5b6573" stroke-width="2" class-="comp" data-comp="pms"/>
 <text x="1495.0" y="146.0" font-size="15" font-weight="bold" text-anchor="middle" fill="#1d2229" class-="label" data-comp="pms">PMSA003I</text>
 <text x="1495.0" y="166.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="pms">Particulate matter</text>
 <text x="1495.0" y="182.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="pms">0x12 · channel 0</text>
-<text x="1495.0" y="198.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="pms">fan needs 5 V</text>
+<text x="1495.0" y="198.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="pms">STEMMA QT cable</text>
 <rect x="1335" y="120" width="10" height="10" rx="2" fill="#ffffff" stroke="#e2622a" stroke-width="2.4" class-="pin" data-net="D6" data-comp="pms"/>
 <text x="1349" y="129" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="D6" data-comp="pms">SET</text>
 <rect x="1335" y="160" width="10" height="10" rx="2" fill="#ffffff" stroke="#2a78d6" stroke-width="2.4" class-="pin" data-net="SD0" data-comp="pms"/>
 <text x="1349" y="169" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="SD0" data-comp="pms">SDA</text>
 <rect x="1335" y="190" width="10" height="10" rx="2" fill="#ffffff" stroke="#159a6a" stroke-width="2.4" class-="pin" data-net="SC0" data-comp="pms"/>
 <text x="1349" y="199" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="SC0" data-comp="pms">SCL</text>
-<rect x="1645" y="140" width="10" height="10" rx="2" fill="#ffffff" stroke="#d0342c" stroke-width="2.4" class-="pin" data-net="5V" data-comp="pms"/>
-<text x="1641" y="149" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="5V" data-comp="pms">VIN</text>
+<rect x="1645" y="140" width="10" height="10" rx="2" fill="#ffffff" stroke="#e07b00" stroke-width="2.4" class-="pin" data-net="3V3" data-comp="pms"/>
+<text x="1641" y="149" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="3V3" data-comp="pms">VIN</text>
 <rect x="1645" y="180" width="10" height="10" rx="2" fill="#ffffff" stroke="#2b2b2b" stroke-width="2.4" class-="pin" data-net="GND" data-comp="pms"/>
 <text x="1641" y="189" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="GND" data-comp="pms">GND</text>
 <rect x="1340" y="270" width="310" height="110" rx="10" fill="#f7f8fa" stroke="#5b6573" stroke-width="2" class-="comp" data-comp="bme"/>
 <text x="1495.0" y="306.0" font-size="15" font-weight="bold" text-anchor="middle" fill="#1d2229" class-="label" data-comp="bme">BME280</text>
 <text x="1495.0" y="326.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="bme">Temp. / humidity / pressure</text>
 <text x="1495.0" y="342.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="bme">0x76 · channel 1</text>
-<text x="1495.0" y="358.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="bme">3.3 V only</text>
-<rect x="1335" y="305" width="10" height="10" rx="2" fill="#ffffff" stroke="#2a78d6" stroke-width="2.4" class-="pin" data-net="LSDA" data-comp="bme"/>
-<text x="1349" y="314" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="LSDA" data-comp="bme">SDA</text>
-<rect x="1335" y="335" width="10" height="10" rx="2" fill="#ffffff" stroke="#159a6a" stroke-width="2.4" class-="pin" data-net="LSCL" data-comp="bme"/>
-<text x="1349" y="344" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="LSCL" data-comp="bme">SCL</text>
+<text x="1495.0" y="358.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="bme">3.3 V, no level shifter</text>
+<rect x="1335" y="305" width="10" height="10" rx="2" fill="#ffffff" stroke="#2a78d6" stroke-width="2.4" class-="pin" data-net="SD1" data-comp="bme"/>
+<text x="1349" y="314" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="SD1" data-comp="bme">SDA</text>
+<rect x="1335" y="335" width="10" height="10" rx="2" fill="#ffffff" stroke="#159a6a" stroke-width="2.4" class-="pin" data-net="SC1" data-comp="bme"/>
+<text x="1349" y="344" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="SC1" data-comp="bme">SCL</text>
 <rect x="1645" y="305" width="10" height="10" rx="2" fill="#ffffff" stroke="#e07b00" stroke-width="2.4" class-="pin" data-net="3V3" data-comp="bme"/>
 <text x="1641" y="314" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="3V3" data-comp="bme">VIN</text>
 <rect x="1645" y="340" width="10" height="10" rx="2" fill="#ffffff" stroke="#2b2b2b" stroke-width="2.4" class-="pin" data-net="GND" data-comp="bme"/>
@@ -153,8 +134,8 @@
 <text x="1349" y="494" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="SD2" data-comp="uv">D/R (SDA)</text>
 <rect x="1335" y="515" width="10" height="10" rx="2" fill="#ffffff" stroke="#159a6a" stroke-width="2.4" class-="pin" data-net="SC2" data-comp="uv"/>
 <text x="1349" y="524" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="SC2" data-comp="uv">C/T (SCL)</text>
-<rect x="1645" y="485" width="10" height="10" rx="2" fill="#ffffff" stroke="#d0342c" stroke-width="2.4" class-="pin" data-net="5V" data-comp="uv"/>
-<text x="1641" y="494" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="5V" data-comp="uv">VCC</text>
+<rect x="1645" y="485" width="10" height="10" rx="2" fill="#ffffff" stroke="#e07b00" stroke-width="2.4" class-="pin" data-net="3V3" data-comp="uv"/>
+<text x="1641" y="494" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="3V3" data-comp="uv">VCC</text>
 <rect x="1645" y="520" width="10" height="10" rx="2" fill="#ffffff" stroke="#2b2b2b" stroke-width="2.4" class-="pin" data-net="GND" data-comp="uv"/>
 <text x="1641" y="529" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="GND" data-comp="uv">GND</text>
 <rect x="1340" y="600" width="310" height="110" rx="10" fill="#f7f8fa" stroke="#5b6573" stroke-width="2" class-="comp" data-comp="mlx"/>
@@ -166,8 +147,8 @@
 <text x="1349" y="644" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="SD3" data-comp="mlx">SDA</text>
 <rect x="1335" y="665" width="10" height="10" rx="2" fill="#ffffff" stroke="#159a6a" stroke-width="2.4" class-="pin" data-net="SC3" data-comp="mlx"/>
 <text x="1349" y="674" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="SC3" data-comp="mlx">SCL</text>
-<rect x="1645" y="635" width="10" height="10" rx="2" fill="#ffffff" stroke="#d0342c" stroke-width="2.4" class-="pin" data-net="5V" data-comp="mlx"/>
-<text x="1641" y="644" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="5V" data-comp="mlx">VIN</text>
+<rect x="1645" y="635" width="10" height="10" rx="2" fill="#ffffff" stroke="#e07b00" stroke-width="2.4" class-="pin" data-net="3V3" data-comp="mlx"/>
+<text x="1641" y="644" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="3V3" data-comp="mlx">VIN</text>
 <rect x="1645" y="670" width="10" height="10" rx="2" fill="#ffffff" stroke="#2b2b2b" stroke-width="2.4" class-="pin" data-net="GND" data-comp="mlx"/>
 <text x="1641" y="679" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="GND" data-comp="mlx">GND</text>
 <rect x="1340" y="750" width="310" height="110" rx="10" fill="#f7f8fa" stroke="#5b6573" stroke-width="2" class-="comp" data-comp="tsl"/>
@@ -179,8 +160,8 @@
 <text x="1349" y="794" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="SD4" data-comp="tsl">SDA</text>
 <rect x="1335" y="815" width="10" height="10" rx="2" fill="#ffffff" stroke="#159a6a" stroke-width="2.4" class-="pin" data-net="SC4" data-comp="tsl"/>
 <text x="1349" y="824" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="SC4" data-comp="tsl">SCL</text>
-<rect x="1645" y="785" width="10" height="10" rx="2" fill="#ffffff" stroke="#d0342c" stroke-width="2.4" class-="pin" data-net="5V" data-comp="tsl"/>
-<text x="1641" y="794" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="5V" data-comp="tsl">VCC</text>
+<rect x="1645" y="785" width="10" height="10" rx="2" fill="#ffffff" stroke="#e07b00" stroke-width="2.4" class-="pin" data-net="3V3" data-comp="tsl"/>
+<text x="1641" y="794" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="3V3" data-comp="tsl">VCC</text>
 <rect x="1645" y="820" width="10" height="10" rx="2" fill="#ffffff" stroke="#2b2b2b" stroke-width="2.4" class-="pin" data-net="GND" data-comp="tsl"/>
 <text x="1641" y="829" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="GND" data-comp="tsl">GND</text>
 <rect x="60" y="820" width="200" height="130" rx="10" fill="#f7f8fa" stroke="#5b6573" stroke-width="2" class-="comp" data-comp="reed"/>
@@ -217,23 +198,19 @@
 <text x="700" y="941" font-size="11" text-anchor="middle" fill="#1d2229" class-="label" data-net="GND" data-comp="drop">GND</text>
 <g class-="flag" data-net="GND" data-comp="psu"><line x1="135" y1="350" x2="135" y2="372" stroke="#2b2b2b" stroke-width="2.4"/><line x1="126" y1="372" x2="144" y2="372" stroke="#2b2b2b" stroke-width="2.4"/><line x1="129" y1="375" x2="141" y2="375" stroke="#2b2b2b" stroke-width="2.4"/><line x1="132" y1="378" x2="138" y2="378" stroke="#2b2b2b" stroke-width="2.4"/></g>
 <g class-="flag" data-net="5V" data-comp="r4"><line x1="330" y1="325" x2="308" y2="325" stroke="#d0342c" stroke-width="2.4"/><rect x="274" y="316.0" width="34" height="18" rx="4" fill="#ffffff" stroke="#d0342c" stroke-width="1.8"/><text x="291.0" y="329.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#d0342c">5V</text></g>
-<g class-="flag" data-net="3V3" data-comp="r4"><line x1="330" y1="375" x2="308" y2="375" stroke="#e07b00" stroke-width="2.4"/><rect x="274" y="366.0" width="34" height="18" rx="4" fill="#ffffff" stroke="#e07b00" stroke-width="1.8"/><text x="291.0" y="379.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#e07b00">3V3</text></g>
-<g class-="flag" data-net="GND" data-comp="r4"><line x1="330" y1="425" x2="308" y2="425" stroke="#2b2b2b" stroke-width="2.4"/><line x1="308" y1="425" x2="308" y2="433" stroke="#2b2b2b" stroke-width="2.4"/><line x1="299" y1="433" x2="317" y2="433" stroke="#2b2b2b" stroke-width="2.4"/><line x1="302" y1="436" x2="314" y2="436" stroke="#2b2b2b" stroke-width="2.4"/><line x1="305" y1="439" x2="311" y2="439" stroke="#2b2b2b" stroke-width="2.4"/></g>
+<g class-="flag" data-net="GND" data-comp="r4"><line x1="330" y1="385" x2="308" y2="385" stroke="#2b2b2b" stroke-width="2.4"/><line x1="308" y1="385" x2="308" y2="393" stroke="#2b2b2b" stroke-width="2.4"/><line x1="299" y1="393" x2="317" y2="393" stroke="#2b2b2b" stroke-width="2.4"/><line x1="302" y1="396" x2="314" y2="396" stroke="#2b2b2b" stroke-width="2.4"/><line x1="305" y1="399" x2="311" y2="399" stroke="#2b2b2b" stroke-width="2.4"/></g>
 <g class-="flag" data-net="5V" data-comp="tca"><line x1="780" y1="460" x2="758" y2="460" stroke="#d0342c" stroke-width="2.4"/><rect x="724" y="451.0" width="34" height="18" rx="4" fill="#ffffff" stroke="#d0342c" stroke-width="1.8"/><text x="741.0" y="464.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#d0342c">5V</text></g>
 <g class-="flag" data-net="GND" data-comp="tca"><line x1="780" y1="500" x2="758" y2="500" stroke="#2b2b2b" stroke-width="2.4"/><line x1="758" y1="500" x2="758" y2="508" stroke="#2b2b2b" stroke-width="2.4"/><line x1="749" y1="508" x2="767" y2="508" stroke="#2b2b2b" stroke-width="2.4"/><line x1="752" y1="511" x2="764" y2="511" stroke="#2b2b2b" stroke-width="2.4"/><line x1="755" y1="514" x2="761" y2="514" stroke="#2b2b2b" stroke-width="2.4"/></g>
-<g class-="flag" data-net="GND" data-comp="tca"><line x1="780" y1="540" x2="758" y2="540" stroke="#2b2b2b" stroke-width="2.4"/><line x1="758" y1="540" x2="758" y2="548" stroke="#2b2b2b" stroke-width="2.4"/><line x1="749" y1="548" x2="767" y2="548" stroke="#2b2b2b" stroke-width="2.4"/><line x1="752" y1="551" x2="764" y2="551" stroke="#2b2b2b" stroke-width="2.4"/><line x1="755" y1="554" x2="761" y2="554" stroke="#2b2b2b" stroke-width="2.4"/></g>
-<g class-="flag" data-net="5V" data-comp="lvl"><line x1="1140" y1="400" x2="1140" y2="422" stroke="#d0342c" stroke-width="2.4"/><rect x="1123.0" y="422" width="34" height="18" rx="4" fill="#ffffff" stroke="#d0342c" stroke-width="1.8"/><text x="1140.0" y="435.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#d0342c">5V</text></g>
-<g class-="flag" data-net="GND" data-comp="lvl"><line x1="1185" y1="400" x2="1185" y2="422" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1176" y1="422" x2="1194" y2="422" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1179" y1="425" x2="1191" y2="425" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1182" y1="428" x2="1188" y2="428" stroke="#2b2b2b" stroke-width="2.4"/></g>
-<g class-="flag" data-net="3V3" data-comp="lvl"><line x1="1230" y1="400" x2="1230" y2="422" stroke="#e07b00" stroke-width="2.4"/><rect x="1213.0" y="422" width="34" height="18" rx="4" fill="#ffffff" stroke="#e07b00" stroke-width="1.8"/><text x="1230.0" y="435.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#e07b00">3V3</text></g>
-<g class-="flag" data-net="5V" data-comp="pms"><line x1="1650" y1="145" x2="1672" y2="145" stroke="#d0342c" stroke-width="2.4"/><rect x="1672" y="136.0" width="34" height="18" rx="4" fill="#ffffff" stroke="#d0342c" stroke-width="1.8"/><text x="1689.0" y="149.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#d0342c">5V</text></g>
+<g class-="flag" data-net="3V3" data-comp="tca"><line x1="880" y1="700" x2="880" y2="722" stroke="#e07b00" stroke-width="2.4"/><rect x="863.0" y="722" width="34" height="18" rx="4" fill="#ffffff" stroke="#e07b00" stroke-width="1.8"/><text x="880.0" y="735.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#e07b00">3V3</text></g>
+<g class-="flag" data-net="3V3" data-comp="pms"><line x1="1650" y1="145" x2="1672" y2="145" stroke="#e07b00" stroke-width="2.4"/><rect x="1672" y="136.0" width="34" height="18" rx="4" fill="#ffffff" stroke="#e07b00" stroke-width="1.8"/><text x="1689.0" y="149.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#e07b00">3V3</text></g>
 <g class-="flag" data-net="GND" data-comp="pms"><line x1="1650" y1="185" x2="1672" y2="185" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1672" y1="185" x2="1672" y2="193" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1663" y1="193" x2="1681" y2="193" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1666" y1="196" x2="1678" y2="196" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1669" y1="199" x2="1675" y2="199" stroke="#2b2b2b" stroke-width="2.4"/></g>
 <g class-="flag" data-net="3V3" data-comp="bme"><line x1="1650" y1="310" x2="1672" y2="310" stroke="#e07b00" stroke-width="2.4"/><rect x="1672" y="301.0" width="34" height="18" rx="4" fill="#ffffff" stroke="#e07b00" stroke-width="1.8"/><text x="1689.0" y="314.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#e07b00">3V3</text></g>
 <g class-="flag" data-net="GND" data-comp="bme"><line x1="1650" y1="345" x2="1672" y2="345" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1672" y1="345" x2="1672" y2="353" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1663" y1="353" x2="1681" y2="353" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1666" y1="356" x2="1678" y2="356" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1669" y1="359" x2="1675" y2="359" stroke="#2b2b2b" stroke-width="2.4"/></g>
-<g class-="flag" data-net="5V" data-comp="uv"><line x1="1650" y1="490" x2="1672" y2="490" stroke="#d0342c" stroke-width="2.4"/><rect x="1672" y="481.0" width="34" height="18" rx="4" fill="#ffffff" stroke="#d0342c" stroke-width="1.8"/><text x="1689.0" y="494.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#d0342c">5V</text></g>
+<g class-="flag" data-net="3V3" data-comp="uv"><line x1="1650" y1="490" x2="1672" y2="490" stroke="#e07b00" stroke-width="2.4"/><rect x="1672" y="481.0" width="34" height="18" rx="4" fill="#ffffff" stroke="#e07b00" stroke-width="1.8"/><text x="1689.0" y="494.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#e07b00">3V3</text></g>
 <g class-="flag" data-net="GND" data-comp="uv"><line x1="1650" y1="525" x2="1672" y2="525" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1672" y1="525" x2="1672" y2="533" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1663" y1="533" x2="1681" y2="533" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1666" y1="536" x2="1678" y2="536" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1669" y1="539" x2="1675" y2="539" stroke="#2b2b2b" stroke-width="2.4"/></g>
-<g class-="flag" data-net="5V" data-comp="mlx"><line x1="1650" y1="640" x2="1672" y2="640" stroke="#d0342c" stroke-width="2.4"/><rect x="1672" y="631.0" width="34" height="18" rx="4" fill="#ffffff" stroke="#d0342c" stroke-width="1.8"/><text x="1689.0" y="644.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#d0342c">5V</text></g>
+<g class-="flag" data-net="3V3" data-comp="mlx"><line x1="1650" y1="640" x2="1672" y2="640" stroke="#e07b00" stroke-width="2.4"/><rect x="1672" y="631.0" width="34" height="18" rx="4" fill="#ffffff" stroke="#e07b00" stroke-width="1.8"/><text x="1689.0" y="644.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#e07b00">3V3</text></g>
 <g class-="flag" data-net="GND" data-comp="mlx"><line x1="1650" y1="675" x2="1672" y2="675" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1672" y1="675" x2="1672" y2="683" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1663" y1="683" x2="1681" y2="683" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1666" y1="686" x2="1678" y2="686" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1669" y1="689" x2="1675" y2="689" stroke="#2b2b2b" stroke-width="2.4"/></g>
-<g class-="flag" data-net="5V" data-comp="tsl"><line x1="1650" y1="790" x2="1672" y2="790" stroke="#d0342c" stroke-width="2.4"/><rect x="1672" y="781.0" width="34" height="18" rx="4" fill="#ffffff" stroke="#d0342c" stroke-width="1.8"/><text x="1689.0" y="794.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#d0342c">5V</text></g>
+<g class-="flag" data-net="3V3" data-comp="tsl"><line x1="1650" y1="790" x2="1672" y2="790" stroke="#e07b00" stroke-width="2.4"/><rect x="1672" y="781.0" width="34" height="18" rx="4" fill="#ffffff" stroke="#e07b00" stroke-width="1.8"/><text x="1689.0" y="794.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#e07b00">3V3</text></g>
 <g class-="flag" data-net="GND" data-comp="tsl"><line x1="1650" y1="825" x2="1672" y2="825" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1672" y1="825" x2="1672" y2="833" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1663" y1="833" x2="1681" y2="833" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1666" y1="836" x2="1678" y2="836" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1669" y1="839" x2="1675" y2="839" stroke="#2b2b2b" stroke-width="2.4"/></g>
 <g class-="flag" data-net="5V" data-comp="reed"><line x1="120" y1="950" x2="120" y2="972" stroke="#d0342c" stroke-width="2.4"/><rect x="103.0" y="972" width="34" height="18" rx="4" fill="#ffffff" stroke="#d0342c" stroke-width="1.8"/><text x="120.0" y="985.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#d0342c">5V</text></g>
 <g class-="flag" data-net="GND" data-comp="reed"><line x1="200" y1="950" x2="200" y2="972" stroke="#2b2b2b" stroke-width="2.4"/><line x1="191" y1="972" x2="209" y2="972" stroke="#2b2b2b" stroke-width="2.4"/><line x1="194" y1="975" x2="206" y2="975" stroke="#2b2b2b" stroke-width="2.4"/><line x1="197" y1="978" x2="203" y2="978" stroke="#2b2b2b" stroke-width="2.4"/></g>
@@ -245,7 +222,7 @@
 <g class-="flag" data-net="5V"><line x1="806" y1="929" x2="820" y2="929" stroke="#d0342c" stroke-width="2.4"/><rect x="820" y="920.0" width="34" height="18" rx="4" fill="#ffffff" stroke="#d0342c" stroke-width="1.8"/><text x="837.0" y="933.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#d0342c">5V</text></g>
 <text x="870" y="933" font-size="12" text-anchor="start" fill="#1d2229" class-="label" data-net="5V">5 V rail</text>
 <g class-="flag" data-net="3V3"><line x1="806" y1="953" x2="820" y2="953" stroke="#e07b00" stroke-width="2.4"/><rect x="820" y="944.0" width="34" height="18" rx="4" fill="#ffffff" stroke="#e07b00" stroke-width="1.8"/><text x="837.0" y="957.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#e07b00">3V3</text></g>
-<text x="870" y="957" font-size="12" text-anchor="start" fill="#1d2229" class-="label" data-net="3V3">3.3 V</text>
+<text x="870" y="957" font-size="12" text-anchor="start" fill="#1d2229" class-="label" data-net="3V3">3.3 V (mux ports)</text>
 <g class-="flag" data-net="GND"><line x1="806" y1="977" x2="820" y2="977" stroke="#2b2b2b" stroke-width="2.4"/><line x1="820" y1="977" x2="820" y2="985" stroke="#2b2b2b" stroke-width="2.4"/><line x1="811" y1="985" x2="829" y2="985" stroke="#2b2b2b" stroke-width="2.4"/><line x1="814" y1="988" x2="826" y2="988" stroke="#2b2b2b" stroke-width="2.4"/><line x1="817" y1="991" x2="823" y2="991" stroke="#2b2b2b" stroke-width="2.4"/></g>
 <text x="870" y="981" font-size="12" text-anchor="start" fill="#1d2229" class-="label" data-net="GND">GND</text>
 <polyline points="1025,929 1069,929" fill="none" stroke="#8e2b2b" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="VIN"/>
@@ -268,8 +245,8 @@
 <text x="1545" y="981" font-size="12" text-anchor="start" fill="#1d2229" class-="label" data-net="D4">D4 → RESET</text>
 <text x="40" y="1035" font-size="14" font-weight="bold" text-anchor="start" fill="#1d2229" class-="label">Notes</text>
 <text x="40" y="1057" font-size="12" text-anchor="start" fill="#1d2229" class-="label">•  Power is drawn as net labels: all pins labelled 5V, 3V3 or GND are connected to that rail.</text>
-<text x="40" y="1076" font-size="12" text-anchor="start" fill="#1d2229" class-="label">•  TCA9548A and all sensors except BME280 run on 5 V (UNO R4 has 5 V logic on A4/A5; PMSA003I fan needs 5 V).</text>
-<text x="40" y="1095" font-size="12" text-anchor="start" fill="#1d2229" class-="label">•  BME280 is 3.3 V only: connected through the level shifter on channel 1.</text>
+<text x="40" y="1076" font-size="12" text-anchor="start" fill="#1d2229" class-="label">•  PCA9548 on the header I²C bus (A4/A5, 5 V logic) with V+ = 5 V; not on the Qwiic port (separate 3.3 V bus Wire1).</text>
+<text x="40" y="1095" font-size="12" text-anchor="start" fill="#1d2229" class-="label">•  Vlogic switch on 3.3 V: the ports supply all I²C sensors with 3.3 V power and logic (on-board regulator, max 500 mA).</text>
 <text x="40" y="1114" font-size="12" text-anchor="start" fill="#1d2229" class-="label">•  D4 → RESET for the hourly self-reset: firmware keeps D4 an input and only pulls it LOW to reset. D8–D12 are free.</text>
 <text x="40" y="1133" font-size="12" text-anchor="start" fill="#1d2229" class-="label">•  Bulk capacitor on the 5 V rail and 100 nF at every module recommended (PMSA003I fan, WiFi bursts).</text>
 </svg>

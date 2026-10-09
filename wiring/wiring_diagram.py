@@ -36,12 +36,15 @@ NETS = {
     'VIN': dict(label='VIN 6–24 V', color='#8e2b2b', kind='power',
                 note='Supply input: solar/battery via regulator, or USB 5 V on the bench.'),
     '5V': dict(label='5 V rail', color='#d0342c', kind='power',
-               note='Board 5 V pin. Multiplexer, all sensors except BME280, rain sensors, anemometer.'),
-    '3V3': dict(label='3.3 V', color='#e07b00', kind='power',
-                note='Board 3.3 V pin. Only BME280 and the low-voltage side of its level shifter.'),
+               note='Board 5 V pin: multiplexer V+, rain gauge, rain drop sensor, anemometer.'),
+    '3V3': dict(label='3.3 V (mux ports)', color='#e07b00', kind='power',
+                note='3.3 V regulator of the PCA9548 board (Vlogic switch = 3.3 V, max 500 mA), '
+                     'supplied to each sensor through its channel port. The board 3.3 V pin is not used.'),
     'GND': dict(label='GND', color='#2b2b2b', kind='ground', note='Common ground of all parts.'),
-    'SDA': dict(label='I²C SDA (main bus)', color=SDA_COLOR, kind='i2c', note='A4 → TCA9548A, 5 V logic.'),
-    'SCL': dict(label='I²C SCL (main bus)', color=SCL_COLOR, kind='i2c', note='A5 → TCA9548A, 5 V logic.'),
+    'SDA': dict(label='I²C SDA (main bus)', color=SDA_COLOR, kind='i2c',
+                note='A4 → PCA9548 (header bus Wire, 5 V logic; not the 3.3 V Qwiic port).'),
+    'SCL': dict(label='I²C SCL (main bus)', color=SCL_COLOR, kind='i2c',
+                note='A5 → PCA9548 (header bus Wire, 5 V logic; not the 3.3 V Qwiic port).'),
     'D2': dict(label='D2 rain gauge', color='#4a3aa7', kind='signal',
                note='Tipping-bucket reed contact; pull-up on the module, debounced in firmware (250 ms).'),
     'D3': dict(label='D3 anemometer', color='#c2457a', kind='signal',
@@ -56,16 +59,11 @@ NETS = {
                note='Hourly self-reset: D4 is an input during operation and is switched to '
                     'output LOW to pull RESET (firmware checkAutoReset()).'),
 }
-for ch, sensor in [(0, 'PMSA003I'), (1, 'BME280 (via level shifter)'), (2, 'SEN0636'),
-                   (3, 'MLX90614'), (4, 'TSL2591')]:
+for ch, sensor in [(0, 'PMSA003I'), (1, 'BME280'), (2, 'SEN0636'), (3, 'MLX90614'), (4, 'TSL2591')]:
     NETS[f'SD{ch}'] = dict(label=f'Channel {ch} SDA', color=SDA_COLOR, kind='i2c',
-                           note=f'TCA9548A channel {ch} → {sensor}.')
+                           note=f'PCA9548 port {ch} → {sensor}, 3.3 V logic.')
     NETS[f'SC{ch}'] = dict(label=f'Channel {ch} SCL', color=SCL_COLOR, kind='i2c',
-                           note=f'TCA9548A channel {ch} → {sensor}.')
-NETS['LSDA'] = dict(label='BME280 SDA (3.3 V side)', color=SDA_COLOR, kind='i2c',
-                    note='Level shifter low-voltage side → BME280.')
-NETS['LSCL'] = dict(label='BME280 SCL (3.3 V side)', color=SCL_COLOR, kind='i2c',
-                    note='Level shifter low-voltage side → BME280.')
+                           note=f'PCA9548 port {ch} → {sensor}, 3.3 V logic.')
 
 # ---------------------------------------------------------------------------
 # Components: geometry (x, y, w, h), text lines and pins
@@ -79,35 +77,30 @@ COMPONENTS = {
                 info='Feeds VIN. For bench tests the board can run from USB instead.'),
     'r4': dict(title='Arduino UNO R4 WiFi', lines=['5 V logic', 'WiFi: on-board ESP32-S3', '', 'Firmware v1.7'],
                box=(330, 220, 260, 440), kind='mcu',
-               pins=[('VIN', 'VIN', 'left', 45), ('5V', '5V', 'left', 105), ('3V3', '3.3V', 'left', 155),
-                     ('GND', 'GND', 'left', 205),
+               pins=[('VIN', 'VIN', 'left', 45), ('5V', '5V', 'left', 105), ('GND', 'GND', 'left', 165),
                      ('D6', 'D6', 'right', 50), ('A4', 'A4 / SDA', 'right', 120), ('A5', 'A5 / SCL', 'right', 160),
                      ('D2', 'D2', 'bottom', 30), ('D3', 'D3', 'bottom', 75), ('D5', 'D5', 'bottom', 120),
                      ('A1', 'A1', 'bottom', 165), ('D4', 'D4', 'bottom', 205), ('RST', 'RESET', 'bottom', 238)],
                info='Reads all sensors and uploads every 60 s via HTTPS. D4 is wired to RESET for the '
                     'hourly self-reset; it stays an input until the reset (never driven HIGH).'),
-    'tca': dict(title='TCA9548A', lines=['I²C multiplexer', 'address 0x70'],
+    'tca': dict(title='PCA9548', lines=['I²C mux · 0x70', 'Adafruit board', 'V+ 5 V', 'Vlogic 3.3 V'],
                 box=(780, 300, 200, 400), kind='mux',
-                pins=[('SDA', 'SDA', 'left', 40), ('SCL', 'SCL', 'left', 80), ('VIN', 'VIN', 'left', 160),
-                      ('GND', 'GND', 'left', 200), ('ADDR', 'A0–A2', 'left', 240)]
+                pins=[('SDA', 'SDA', 'left', 40), ('SCL', 'SCL', 'left', 80), ('VIN', 'V+', 'left', 160),
+                      ('GND', 'GND', 'left', 200), ('VOUT', '3.3 V ports', 'bottom', 100)]
                 + [p for ch in range(5) for p in (
                     (f'SD{ch}', f'SD{ch}', 'right', 30 + 80 * ch), (f'SC{ch}', f'SC{ch}', 'right', 60 + 80 * ch))],
-                info='Only one channel is switched on at a time; the firmware selects the channel '
-                     'before each sensor access. Address pins A0–A2 to GND give 0x70.'),
-    'lvl': dict(title='Level shifter', lines=['5 V ↔ 3.3 V'],
-                box=(1110, 240, 150, 160), kind='helper',
-                pins=[('HV1', 'HV1', 'left', 70), ('HV2', 'HV2', 'left', 100),
-                      ('LV1', 'LV1', 'right', 70), ('LV2', 'LV2', 'right', 100),
-                      ('HV', 'HV', 'bottom', 30), ('GND', 'GND', 'bottom', 75), ('LV', 'LV', 'bottom', 120)],
-                info='Bidirectional I²C level shifter (MOSFET type) between multiplexer channel 1 (5 V) '
-                     'and the 3.3 V-only BME280.'),
-    'pms': dict(title='PMSA003I', lines=['Particulate matter', '0x12 · channel 0', 'fan needs 5 V'],
+                info='Adafruit PCA9548 8-channel STEMMA QT board (TCA9548A compatible) on the header I²C bus (V+ = 5 V, inputs '
+                     'level-shifted). Vlogic switch on 3.3 V: every port supplies 3.3 V and 3.3 V I²C from the '
+                     'on-board regulator (max 500 mA in total). Address jumpers open → 0x70. The firmware '
+                     'switches on one channel before each sensor access.'),
+    'pms': dict(title='PMSA003I', lines=['Particulate matter', '0x12 · channel 0', 'STEMMA QT cable'],
                 box=(1340, 90, 310, 150), kind='sensor',
                 pins=[('SET', 'SET', 'left', 35), ('SDA', 'SDA', 'left', 75), ('SCL', 'SCL', 'left', 105),
                       ('VIN', 'VIN', 'right', 55), ('GND', 'GND', 'right', 95)],
-                info='Sleeps between measurements (SET = LOW); 60–120 mA while the fan runs. '
+                info='Adafruit breakout (VIN 3–5 V, fan voltage generated on board) on port 0 with a '
+                     'STEMMA QT cable. Sleeps between measurements (SET = LOW); 60–120 mA while the fan runs. '
                      'RESET pin not connected (internal pull-up).'),
-    'bme': dict(title='BME280', lines=['Temp. / humidity / pressure', '0x76 · channel 1', '3.3 V only'],
+    'bme': dict(title='BME280', lines=['Temp. / humidity / pressure', '0x76 · channel 1', '3.3 V, no level shifter'],
                 box=(1340, 270, 310, 110), kind='sensor',
                 pins=[('SDA', 'SDA', 'left', 40), ('SCL', 'SCL', 'left', 70),
                       ('VIN', 'VIN', 'right', 40), ('GND', 'GND', 'right', 75)],
@@ -121,13 +114,15 @@ COMPONENTS = {
                 box=(1340, 600, 310, 110), kind='sensor',
                 pins=[('SDA', 'SDA', 'left', 40), ('SCL', 'SCL', 'left', 70),
                       ('VIN', 'VIN', 'right', 40), ('GND', 'GND', 'right', 75)],
-                info='Object temperature = sky, die temperature = sensor body. Needs a free view of the sky '
-                     '(no plexiglass: it blocks thermal infrared).'),
+                info='GY-906 module with 662K 3.3 V regulator (3 V chip version). Object temperature = sky, '
+                     'die temperature = sensor body. Needs a free view of the sky (no plexiglass: it blocks '
+                     'thermal infrared).'),
     'tsl': dict(title='TSL2591', lines=['Illuminance', '0x29 · channel 4', SKY],
                 box=(1340, 750, 310, 110), kind='sensor',
                 pins=[('SDA', 'SDA', 'left', 40), ('SCL', 'SCL', 'left', 70),
                       ('VCC', 'VCC', 'right', 40), ('GND', 'GND', 'right', 75)],
-                info='Auto-ranging driver (firmware ≥ 1.6), Adafruit lux formula (≥ 1.7).'),
+                info='Waveshare TSL25911 module (3.3 V / 5 V). Auto-ranging driver (firmware ≥ 1.6), '
+                     'Adafruit lux formula (≥ 1.7).'),
     'reed': dict(title='Rain gauge', lines=['reed module', 'pull-up on module', '1.25 mm per tip'],
                  box=(60, 820, 200, 130), kind='sensor',
                  pins=[('DO', 'OUT', 'top', 140), ('VCC', 'VCC', 'bottom', 60), ('GND', 'GND', 'bottom', 140)],
@@ -146,14 +141,13 @@ COMPONENTS = {
 # Power/ground net labels at pins: (component, pin, net)
 FLAGS = [
     ('psu', '-', 'GND'),
-    ('r4', '5V', '5V'), ('r4', '3V3', '3V3'), ('r4', 'GND', 'GND'),
-    ('tca', 'VIN', '5V'), ('tca', 'GND', 'GND'), ('tca', 'ADDR', 'GND'),
-    ('lvl', 'HV', '5V'), ('lvl', 'GND', 'GND'), ('lvl', 'LV', '3V3'),
-    ('pms', 'VIN', '5V'), ('pms', 'GND', 'GND'),
+    ('r4', '5V', '5V'), ('r4', 'GND', 'GND'),
+    ('tca', 'VIN', '5V'), ('tca', 'GND', 'GND'), ('tca', 'VOUT', '3V3'),
+    ('pms', 'VIN', '3V3'), ('pms', 'GND', 'GND'),
     ('bme', 'VIN', '3V3'), ('bme', 'GND', 'GND'),
-    ('uv', 'VCC', '5V'), ('uv', 'GND', 'GND'),
-    ('mlx', 'VIN', '5V'), ('mlx', 'GND', 'GND'),
-    ('tsl', 'VCC', '5V'), ('tsl', 'GND', 'GND'),
+    ('uv', 'VCC', '3V3'), ('uv', 'GND', 'GND'),
+    ('mlx', 'VIN', '3V3'), ('mlx', 'GND', 'GND'),
+    ('tsl', 'VCC', '3V3'), ('tsl', 'GND', 'GND'),
     ('reed', 'VCC', '5V'), ('reed', 'GND', 'GND'),
     ('wind', 'VCC', '5V'), ('wind', 'GND', 'GND'),
     ('drop', 'VCC', '5V'), ('drop', 'GND', 'GND'),
@@ -208,10 +202,8 @@ WIRES = [
     ('D4', ('r4', 'D4'), ('r4', 'RST'), dict(ys=(690,))),
     ('SD0', ('tca', 'SD0'), ('pms', 'SDA'), dict(xs=(UP_LANES['SD0'],))),
     ('SC0', ('tca', 'SC0'), ('pms', 'SCL'), dict(xs=(UP_LANES['SC0'],))),
-    ('SD1', ('tca', 'SD1'), ('lvl', 'HV1'), dict(xs=(UP_LANES['SD1'],))),
-    ('SC1', ('tca', 'SC1'), ('lvl', 'HV2'), dict(xs=(UP_LANES['SC1'],))),
-    ('LSDA', ('lvl', 'LV1'), ('bme', 'SDA'), {}),
-    ('LSCL', ('lvl', 'LV2'), ('bme', 'SCL'), {}),
+    ('SD1', ('tca', 'SD1'), ('bme', 'SDA'), dict(xs=(UP_LANES['SD1'],))),
+    ('SC1', ('tca', 'SC1'), ('bme', 'SCL'), dict(xs=(UP_LANES['SC1'],))),
     ('SD2', ('tca', 'SD2'), ('uv', 'DR'), {}),
     ('SC2', ('tca', 'SC2'), ('uv', 'CT'), {}),
     ('SD3', ('tca', 'SD3'), ('mlx', 'SDA'), dict(xs=(DOWN_LANES['SD3'],))),
@@ -227,8 +219,8 @@ WIRES = [
 LEGEND_POS = (800, 905)  # legend: 4 columns x 3 rows
 NOTES = [
     'Power is drawn as net labels: all pins labelled 5V, 3V3 or GND are connected to that rail.',
-    'TCA9548A and all sensors except BME280 run on 5 V (UNO R4 has 5 V logic on A4/A5; PMSA003I fan needs 5 V).',
-    'BME280 is 3.3 V only: connected through the level shifter on channel 1.',
+    'PCA9548 on the header I²C bus (A4/A5, 5 V logic) with V+ = 5 V; not on the Qwiic port (separate 3.3 V bus Wire1).',
+    'Vlogic switch on 3.3 V: the ports supply all I²C sensors with 3.3 V power and logic (on-board regulator, max 500 mA).',
     'D4 → RESET for the hourly self-reset: firmware keeps D4 an input and only pulls it LOW to reset. D8–D12 are free.',
     'Bulk capacitor on the 5 V rail and 100 nF at every module recommended (PMSA003I fan, WiFi bursts).',
 ]
@@ -238,7 +230,7 @@ NOTES = [
 # Layout -> drawing primitives
 # ---------------------------------------------------------------------------
 # Title baselines where the centred text block would collide with pin labels
-TITLE_Y = {'r4': 220 + 255, 'lvl': 240 + 30}
+TITLE_Y = {'r4': 220 + 255, 'tca': 300 + 262}
 KIND_FILL = {'mcu': '#e8f0fb', 'mux': '#eef0f3', 'sensor': '#f7f8fa', 'helper': '#fbf5e9', 'power': '#fbeceb'}
 KIND_STROKE = {'mcu': '#2a5ea8', 'mux': '#5b6573', 'sensor': '#5b6573', 'helper': '#a87a2a', 'power': '#8e2b2b'}
 INK, MUTED = '#1d2229', '#5b6573'
@@ -554,7 +546,7 @@ tr.hl td { background: var(--accent-soft); }
 <div class="page">
 <header>
   <h1>Weather station wiring</h1>
-  <p class="sub">Arduino UNO R4 WiFi with TCA9548A I²C multiplexer. Hover a wire, pin or rail label to highlight its connections;
+  <p class="sub">Arduino UNO R4 WiFi with Adafruit PCA9548 I²C multiplexer (TCA9548A compatible). Hover a wire, pin or rail label to highlight its connections;
   click a component for its pin table. Power is drawn as rail labels: every pin labelled 5V, 3V3 or GND is connected to that rail.</p>
 </header>
 <div class="layout">
