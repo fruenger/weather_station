@@ -56,7 +56,8 @@ DIGITAL / ANALOG PINS
 Pin     Function                          Notes
 ----    --------                          -----
 D2      Rain gauge reed module OUT        INPUT, pull-up on the module
-D3      Anemometer pulse                  INPUT, interrupt RISING
+D3      Anemometer (reed contact)         INPUT, interrupt RISING; external RC debounce
+                                          (R1 10k pull-up, C1 100n, R2 1k), see below
 D4      -> RESET pin of the board         Hourly self-reset (RESET_PIN, RESET_INTERVAL).
                                           Firmware keeps D4 as INPUT and only switches it
                                           to OUTPUT LOW for the reset; never drive it HIGH
@@ -111,7 +112,37 @@ Rain drop sensor
   Module VCC 5 V, GND, DO -> D5, AO -> A1
 
 Anemometer
-  Hall sensor VCC 5 V, GND, SIG -> D3 (interrupt); pulses counted per 500 ms snapshot
+  Cup anemometer with a reed contact: only two wires, no supply. The contact
+  bounces, so without a filter one closure is counted several times. The
+  firmware counts RISING edges on D3 (contact opens) and enables no internal
+  pull-up, so the pull-up is external:
+
+          5V
+           |
+          [R1] 10 kOhm
+           |
+    D3 ----+----[R2] 1 kOhm---- anemometer wire 1
+           |                    (reed contact)
+          [C1] 100 nF           anemometer wire 2 ---- GND
+           |
+          GND
+
+  R1  10 kOhm  D3 -> 5 V        pull-up; D3 is HIGH while the contact is open
+  C1  100 nF   D3 -> GND        ceramic; smooths the bounce: after the contact
+                                opens D3 rises with tau = R1*C1 = 1 ms, so a
+                                bounce of a few hundred microseconds cannot
+                                produce a second rising edge
+  R2  1 kOhm   D3 -> contact    limits the discharge current of C1 through the
+                                reed contact; contact closed -> D3 ~ 0.45 V (LOW)
+
+  Place R1, C1 and R2 close to the Arduino (short connection to D3 and GND).
+  The two anemometer wires are interchangeable.
+  Pulse rates stay far below the filter limit: even a few hundred pulses per
+  second would be resolved with tau = 1 ms.
+  Data check (Jul–Oct 2026, before the filter): the station counted up to
+  ~180 pulses/s at 8–12 m/s (DWD), far more than a reed anemometer produces;
+  the archived wind speeds are therefore too high. Compare again with DWD
+  wind after installing the filter.
 
 ================================================================================
 POWER BUDGET (APPROXIMATE)

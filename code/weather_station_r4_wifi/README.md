@@ -33,7 +33,7 @@ Same sensors and channel assignment as the classic sender; pin mapping is identi
 |-----|----------|
 | A4 (SDA), A5 (SCL) | I2C → PCA9548 (header bus `Wire`, 5 V logic) |
 | D2 | Rain reed (tipping bucket) |
-| D3 | Anemometer (interrupt) |
+| D3 | Anemometer reed contact (interrupt), external RC debounce: R1 10 kΩ to 5 V, C1 100 nF to GND, R2 1 kΩ to the contact |
 | D4 | → RESET pin: hourly self-reset (input during operation, output LOW to reset) |
 | D5 | Rain drop digital |
 | D6 | PMSA003I SET (sleep/wake) |

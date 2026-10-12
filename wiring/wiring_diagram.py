@@ -24,7 +24,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 BASENAME = 'wiring_r4_wifi'
-WIDTH, HEIGHT = 1740, 1150
+WIDTH, HEIGHT = 1740, 1310
 TITLE = 'OST Weather Station — Wiring (Arduino UNO R4 WiFi)'
 SUBTITLE = 'Firmware v1.7 · pins as in weather_station_r4_wifi.ino · same net label = same rail'
 
@@ -48,7 +48,10 @@ NETS = {
     'D2': dict(label='D2 rain gauge', color='#4a3aa7', kind='signal',
                note='Tipping-bucket reed contact; pull-up on the module, debounced in firmware (250 ms).'),
     'D3': dict(label='D3 anemometer', color='#c2457a', kind='signal',
-               note='Hall sensor pulses, interrupt on RISING edge.'),
+               note='Debounced anemometer signal: pulled up to 5 V by R1, smoothed by C1; '
+                    'interrupt on RISING edge (contact opens).'),
+    'WC': dict(label='Anemometer contact', color='#c2457a', kind='signal',
+               note='Reed contact of the anemometer, connected through R2 (1 kΩ) to D3; closes to GND.'),
     'D5': dict(label='D5 rain drop (digital)', color='#b07a00', kind='signal',
                note='Comparator output of the rain drop module: rain yes/no.'),
     'A1': dict(label='A1 rain drop (analog)', color='#2f7d1f', kind='signal',
@@ -124,15 +127,25 @@ COMPONENTS = {
                 info='Waveshare TSL25911 module (3.3 V / 5 V). Auto-ranging driver (firmware ≥ 1.6), '
                      'Adafruit lux formula (≥ 1.7).'),
     'reed': dict(title='Rain gauge', lines=['reed module', 'pull-up on module', '1.25 mm per tip'],
-                 box=(60, 820, 200, 130), kind='sensor',
+                 box=(60, 950, 200, 130), kind='sensor',
                  pins=[('DO', 'OUT', 'top', 140), ('VCC', 'VCC', 'bottom', 60), ('GND', 'GND', 'bottom', 140)],
                  info='Tipping bucket with reed contact; tips are counted per 500 ms snapshot.'),
-    'wind': dict(title='Anemometer', lines=['Hall sensor', 'pulses → interrupt'],
-                 box=(300, 820, 200, 130), kind='sensor',
-                 pins=[('SIG', 'SIG', 'top', 120), ('VCC', 'VCC', 'bottom', 60), ('GND', 'GND', 'bottom', 140)],
-                 info='Raw revolutions per 500 ms are uploaded; the server converts to m/s.'),
+    'rc': dict(title='Debounce (RC)', lines=['R1 10 kΩ: D3 → 5 V', 'C1 100 nF: D3 → GND', 'R2 1 kΩ: D3 → contact'],
+               box=(300, 785, 240, 135), kind='helper',
+               pins=[('IN', 'D3', 'top', 105), ('OUT', 'contact', 'bottom', 120),
+                     ('5V', '5V', 'left', 40), ('GND', 'GND', 'right', 70)],
+               info='R1 pulls D3 up (the firmware enables no internal pull-up). C1 smooths contact bounce: '
+                    'after the contact opens, D3 rises with τ = R1·C1 = 1 ms, so a bounce of a few hundred µs '
+                    'cannot create a second rising edge. R2 limits the discharge current of C1 through the '
+                    'reed contact; with the contact closed D3 sits at about 0.45 V (LOW). Mount R1, C1 '
+                    'and R2 close to the Arduino.'),
+    'wind': dict(title='Anemometer', lines=['reed contact, 2 wires', 'pulses → interrupt'],
+                 box=(300, 950, 200, 130), kind='sensor',
+                 pins=[('A', 'contact', 'top', 120), ('B', 'contact', 'bottom', 120)],
+                 info='Cup anemometer with a reed contact (two wires, no supply). Pulses per 500 ms are '
+                      'uploaded; the server converts to m/s.'),
     'drop': dict(title='Rain drop sensor', lines=['module with comparator'],
-                 box=(540, 820, 230, 130), kind='sensor',
+                 box=(540, 950, 230, 130), kind='sensor',
                  pins=[('DO', 'DO', 'top', 60), ('AO', 'AO', 'top', 120), ('VCC', 'VCC', 'bottom', 80),
                        ('GND', 'GND', 'bottom', 160)],
                  info='Digital output for rain yes/no, analog output for diagnostics.'),
@@ -149,7 +162,7 @@ FLAGS = [
     ('mlx', 'VIN', '3V3'), ('mlx', 'GND', 'GND'),
     ('tsl', 'VCC', '3V3'), ('tsl', 'GND', 'GND'),
     ('reed', 'VCC', '5V'), ('reed', 'GND', 'GND'),
-    ('wind', 'VCC', '5V'), ('wind', 'GND', 'GND'),
+    ('rc', '5V', '5V'), ('rc', 'GND', 'GND'), ('wind', 'B', 'GND'),
     ('drop', 'VCC', '5V'), ('drop', 'GND', 'GND'),
 ]
 NOT_CONNECTED = []
@@ -211,7 +224,8 @@ WIRES = [
     ('SD4', ('tca', 'SD4'), ('tsl', 'SDA'), dict(xs=(DOWN_LANES['SD4'],))),
     ('SC4', ('tca', 'SC4'), ('tsl', 'SCL'), dict(xs=(DOWN_LANES['SC4'],))),
     ('D2', ('r4', 'D2'), ('reed', 'DO'), dict(ys=(765,))),
-    ('D3', ('r4', 'D3'), ('wind', 'SIG'), dict(ys=(785,))),
+    ('D3', ('r4', 'D3'), ('rc', 'IN'), dict(ys=(725,))),
+    ('WC', ('rc', 'OUT'), ('wind', 'A'), dict(ys=(935,))),
     ('D5', ('r4', 'D5'), ('drop', 'DO'), dict(ys=(765,))),
     ('A1', ('r4', 'A1'), ('drop', 'AO'), dict(ys=(740,))),
 ]
@@ -221,6 +235,7 @@ NOTES = [
     'Power is drawn as net labels: all pins labelled 5V, 3V3 or GND are connected to that rail.',
     'PCA9548 on the header I²C bus (A4/A5, 5 V logic) with V+ = 5 V; not on the Qwiic port (separate 3.3 V bus Wire1).',
     'Vlogic switch on 3.3 V: the ports supply all I²C sensors with 3.3 V power and logic (on-board regulator, max 500 mA).',
+    'Anemometer (reed contact, 2 wires): RC debounce with R1 10 kΩ pull-up to 5 V, C1 100 nF to GND, R2 1 kΩ in series with the contact.',
     'D4 → RESET for the hourly self-reset: firmware keeps D4 an input and only pulls it LOW to reset. D8–D12 are free.',
     'Bulk capacitor on the 5 V rail and 100 nF at every module recommended (PMSA003I fan, WiFi bursts).',
 ]
@@ -310,7 +325,7 @@ def build_primitives():
         add('text', net=net, x=ex + 70, y=ey, text=labels.get(net, NETS[net]['label']), size=12,
             anchor='start', color=INK)
     # notes below everything, full width
-    ny = 1035
+    ny = 1160
     add('text', x=40, y=ny, text='Notes', size=14, weight='bold', anchor='start', color=INK)
     for k, note in enumerate(NOTES):
         add('text', x=40, y=ny + 22 + 19 * k, text='•  ' + note, size=12, anchor='start', color=INK)
