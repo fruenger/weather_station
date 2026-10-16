@@ -40,7 +40,7 @@
 #define SECRET_HMAC_PATH "/weather_station/weather_api/datasets/"
 #endif
 
-#define SERIAL_DEBUG 1
+#define SERIAL_DEBUG 0
 #define DISABLE_LED_MATRIX 1
 // 115200 baud: the sensor report (~600 characters every DEBUG_INTERVAL_MS) would
 // block the scheduler for ~0.6 s at 9600 baud
