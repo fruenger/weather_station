@@ -15,6 +15,7 @@
 #include <Adafruit_BME280.h>
 #include "DEV_Config.h"
 #include "TSL2591.h"
+#include "tsl2591_logic.h"
 #include <Adafruit_MLX90614.h>
 #include <Adafruit_PM25AQI.h>
 #include <DFRobot_UVIndex240370Sensor.h>
@@ -39,8 +40,15 @@
 #define SECRET_HMAC_PATH "/weather_station/weather_api/datasets/"
 #endif
 
-#define SERIAL_DEBUG 0
+#define SERIAL_DEBUG 1
 #define DISABLE_LED_MATRIX 1
+// 115200 baud: the sensor report (~600 characters every DEBUG_INTERVAL_MS) would
+// block the scheduler for ~0.6 s at 9600 baud
+const unsigned long SERIAL_BAUD = 115200UL;
+const unsigned long DEBUG_INTERVAL_MS = 2000UL;
+// Sensors not found at boot are searched again at this interval (power glitches,
+// loose connectors); only I2C transactions, no blocking waits
+const unsigned long SENSOR_RETRY_INTERVAL_MS = 60000UL;
 
 // Snapshot + per-sensor intervals (all <= 2 Hz)
 const unsigned long SNAPSHOT_INTERVAL_MS = 500UL;   // ring buffer / wind window: 2 Hz
@@ -158,6 +166,9 @@ bool firstLoop = true;
 bool lastState = false;
 unsigned long lastChanged = 0;
 uint16_t rainTipsThisCycle = 0;
+uint32_t rainTipsTotal = 0;  // since boot, for the debug report
+uint32_t windPulseDebugLast = 0;
+unsigned long windDebugLastMs = 0;
 
 uint32_t packetNumber = 0;
 uint32_t measureCycle = 0;
@@ -174,6 +185,7 @@ unsigned long lastMlxMs = 0;
 unsigned long lastUvMs = 0;
 unsigned long lastRainMs = 0;
 unsigned long lastDebugMs = 0;
+unsigned long lastSensorRetryMs = 0;
 bool uploadSessionOpen = false;
 bool startupLiveModeAnnounced = false;
 bool burstModeAnnounced = false;
@@ -726,11 +738,95 @@ void initializeI2CMultiplexer() {
   Wire.begin();
   Wire.beginTransmission(TCA9548A_ADDRESS);
   if (Wire.endTransmission() == 0) {
-    DBG_PRINTLN(F("TCA9548A multiplexer OK"));
+    DBG_PRINTLN(F("I2C multiplexer (PCA9548/TCA9548A, 0x70) OK"));
   } else {
-    DBG_PRINTLN(F("ERROR: TCA9548A not found"));
+    DBG_PRINTLN(F("ERROR: I2C multiplexer (0x70) not found"));
   }
 }
+
+#if SERIAL_DEBUG
+void selectI2CChannel(uint8_t channel);
+
+static bool i2cDevicePresent(uint8_t addr) {
+  Wire.beginTransmission(addr);
+  return Wire.endTransmission() == 0;
+}
+
+static const __FlashStringHelper *i2cDeviceName(uint8_t addr) {
+  switch (addr) {
+    case 0x12: return F("PMSA003I");
+    case 0x23: return F("SEN0636");
+    case 0x29: return F("TSL2591");
+    case 0x5A: return F("MLX90614");
+    case 0x70: return F("multiplexer");
+    case 0x76: return F("BME280");
+    case 0x77: return F("BME280 (address 0x77, firmware expects 0x76)");
+    default: return F("unknown");
+  }
+}
+
+static void printI2CAddress(uint8_t addr) {
+  Serial.print(F(" 0x"));
+  if (addr < 0x10) {
+    Serial.print('0');
+  }
+  Serial.print(addr, HEX);
+  Serial.print(F(" ("));
+  Serial.print(i2cDeviceName(addr));
+  Serial.print(')');
+}
+
+// Lists the devices on the main bus and on every multiplexer channel. Devices on
+// the main bus answer on every channel as well, so they are only listed once.
+void scanI2CBus() {
+  static const uint8_t EXPECTED[8] = {0x12, 0x76, 0x23, 0x5A, 0x29, 0, 0, 0};
+  bool onMainBus[128] = {false};
+
+  Serial.println(F("I2C scan"));
+  Wire.beginTransmission(TCA9548A_ADDRESS);
+  Wire.write((uint8_t)0);  // all channels off
+  Wire.endTransmission();
+  Serial.print(F("  main bus:"));
+  for (uint8_t addr = 0x08; addr < 0x78; addr++) {
+    if (i2cDevicePresent(addr)) {
+      onMainBus[addr] = true;
+      printI2CAddress(addr);
+    }
+  }
+  Serial.println();
+
+  for (uint8_t ch = 0; ch < 8; ch++) {
+    selectI2CChannel((uint8_t)(1 << ch));
+    Serial.print(F("  channel "));
+    Serial.print(ch);
+    Serial.print(':');
+    bool any = false;
+    bool expectedFound = false;
+    for (uint8_t addr = 0x08; addr < 0x78; addr++) {
+      if (onMainBus[addr] || !i2cDevicePresent(addr)) {
+        continue;
+      }
+      any = true;
+      expectedFound |= (addr == EXPECTED[ch]);
+      printI2CAddress(addr);
+    }
+    if (!any) {
+      Serial.print(F(" -"));
+    }
+    if (EXPECTED[ch] != 0 && !expectedFound) {
+      Serial.print(F("   <-- expected"));
+      printI2CAddress(EXPECTED[ch]);
+      if (EXPECTED[ch] == 0x12) {
+        Serial.print(F(", answers only while awake"));
+      }
+    }
+    Serial.println();
+  }
+  Wire.beginTransmission(TCA9548A_ADDRESS);
+  Wire.write((uint8_t)0);
+  Wire.endTransmission();
+}
+#endif
 
 void selectI2CChannel(uint8_t channel) {
   Wire.beginTransmission(TCA9548A_ADDRESS);
@@ -793,15 +889,40 @@ void sleepPMSA003I() {
   pmsa003i_sensor_available = false;
 }
 
-void initializeUVSensor() {
+void initializeUVSensor(uint8_t attempts) {
   selectI2CChannel(TCA_CHANNEL_2);
-  int attempts = 0;
-  while (uvSensor.begin() != true && attempts < 10) {
-    attempts++;
-    delay(1000);
+  uv_sensor_available = false;
+  for (uint8_t i = 0; i < attempts; i++) {
+    if (uvSensor.begin()) {
+      uv_sensor_available = true;
+      break;
+    }
+    if (i + 1 < attempts) {
+      delay(1000);
+    }
   }
-  uv_sensor_available = (attempts < 10);
   DBG_PRINTLN(uv_sensor_available ? F("SEN0636 UV OK (ch2)") : F("SEN0636 UV failed"));
+}
+
+// Search again for sensors that were not found (single attempt each, no waits).
+// The PMSA003I is not included: it is initialised on every wake-up anyway.
+void retryMissingSensors(unsigned long now) {
+  if (now - lastSensorRetryMs < SENSOR_RETRY_INTERVAL_MS) {
+    return;
+  }
+  lastSensorRetryMs = now;
+  if (!bme_sensor_available) {
+    initializeBME280();
+  }
+  if (!mlx_sensor_available) {
+    initializeMLX90614();
+  }
+  if (!light_sensor_available) {
+    initializeTSL2591();
+  }
+  if (!uv_sensor_available) {
+    initializeUVSensor(1);
+  }
 }
 
 void initializeWiFiModule() {
@@ -898,6 +1019,7 @@ void processRainReed() {
   }
   if (reedState != lastState && (millis() - lastChanged) > 250) {
     rainTipsThisCycle++;
+    rainTipsTotal++;
     lastState = reedState;
     lastChanged = millis();
   }
@@ -1030,18 +1152,144 @@ void updateWindReading() {
   sample.wind_revolutions = (uint16_t)delta;
 }
 
-void printDebugInfo() {
-  DBG_PRINT(isStartupLiveMode() ? F("[live] ") : F("[burst] "));
-  DBG_PRINT(F("T="));
-  DBG_PRINT(sample.temperature, 1);
-  DBG_PRINT(F("C buf="));
-  DBG_PRINT(ringCount);
-  DBG_PRINT(F("/"));
-  DBG_PRINT(RING_BUFFER_SIZE);
-  DBG_PRINT(F(" wind="));
-  DBG_PRINT(sample.wind_revolutions);
-  DBG_PRINT(F(" pkt="));
-  DBG_PRINTLN(packetNumber);
+// Sensor report for hardware tests (SERIAL_DEBUG 1): current reading of every
+// sensor plus raw pin states, every DEBUG_INTERVAL_MS.
+void printDebugInfo(unsigned long now) {
+#if SERIAL_DEBUG
+  Serial.println();
+  Serial.print(F("--- t="));
+  Serial.print(now / 1000UL);
+  Serial.print(F(" s "));
+  Serial.print(isStartupLiveMode() ? F("[live]") : F("[burst]"));
+  Serial.print(F("  buffer "));
+  Serial.print(ringCount);
+  Serial.print('/');
+  Serial.print(RING_BUFFER_SIZE);
+  Serial.print(F("  pkt "));
+  Serial.print(packetNumber);
+  Serial.print(F("  uploads ok/failed "));
+  Serial.print(successfulUploads);
+  Serial.print('/');
+  Serial.println(failedUploads);
+
+  Serial.print(F("BME280    "));
+  if (bme_sensor_available) {
+    Serial.print(F("T "));
+    Serial.print(sample.temperature, 2);
+    Serial.print(F(" C   RH "));
+    Serial.print(sample.humidity, 1);
+    Serial.print(F(" %   p "));
+    Serial.print(sample.pressure, 1);
+    Serial.println(F(" hPa"));
+  } else {
+    Serial.println(F("not available"));
+  }
+
+  Serial.print(F("MLX90614  "));
+  if (mlx_sensor_available) {
+    Serial.print(F("sky "));
+    Serial.print(sample.sky_temp, 2);
+    Serial.print(F(" C   box "));
+    Serial.print(sample.box_temp, 2);
+    Serial.print(F(" C   sky-box "));
+    Serial.print(sample.sky_temp - sample.box_temp, 2);
+    Serial.print(F(" K"));
+    if (bme_sensor_available) {
+      Serial.print(F("   sky-air "));
+      Serial.print(sample.sky_temp - sample.temperature, 2);
+      Serial.print(F(" K"));
+    }
+    Serial.println();
+  } else {
+    Serial.println(F("not available"));
+  }
+
+  Serial.print(F("TSL2591   "));
+  if (light_sensor_available) {
+    UWORD ch0, ch1;
+    TSL2591_LastCounts(&ch0, &ch1);
+    const tsl2591::Stage &st = tsl2591::STAGES[TSL2591_Stage()];
+    Serial.print(sample.illuminance, 3);
+    Serial.print(F(" lx   ch0 "));
+    Serial.print(ch0);
+    Serial.print(F("  ch1 "));
+    Serial.print(ch1);
+    Serial.print(F("   stage "));
+    Serial.print(TSL2591_Stage());
+    Serial.print(F(" ("));
+    Serial.print((unsigned long)st.again);
+    Serial.print(F("x "));
+    Serial.print(st.atime_ms);
+    Serial.print(F(" ms)"));
+    if (luxErrorStreak > 0) {
+      Serial.print(F("   I2C errors "));
+      Serial.print(luxErrorStreak);
+    }
+    Serial.println();
+  } else {
+    Serial.println(F("not available"));
+  }
+
+  Serial.print(F("SEN0636   "));
+  if (uv_sensor_available) {
+    selectI2CChannel(TCA_CHANNEL_2);
+    Serial.print(F("UV index "));
+    Serial.print(sample.uv_index);
+    Serial.print(F("   raw "));
+    Serial.println(uvSensor.readUvOriginalData());
+  } else {
+    Serial.println(F("not available"));
+  }
+
+  Serial.print(F("PMSA003I  "));
+  Serial.print(F("PM1.0 "));
+  Serial.print(sample.pm1_0);
+  Serial.print(F("  PM2.5 "));
+  Serial.print(sample.pm2_5);
+  Serial.print(F("  PM10 "));
+  Serial.print(sample.pm10);
+  Serial.print(F(" ug/m3   "));
+  if (pmsa003i_awake) {
+    Serial.print(F("awake "));
+    Serial.print((now - pmsa003i_wake_time) / 1000UL);
+    Serial.print(F(" s"));
+    Serial.println(pmsa003i_sensor_available ? F(" (found)") : F(" (booting)"));
+  } else {
+    unsigned long since = now - last_pm_measurement;
+    Serial.print(F("asleep, next in "));
+    Serial.print(since < PM_MEASUREMENT_INTERVAL ? (PM_MEASUREMENT_INTERVAL - since) / 1000UL : 0UL);
+    Serial.println(F(" s"));
+  }
+
+  Serial.print(F("Rain      tips "));
+  Serial.print(rainTipsTotal);
+  Serial.print(F(" since boot   D2 "));
+  Serial.print(digitalRead(RAIN_REED_PIN) == HIGH ? F("HIGH") : F("LOW"));
+  Serial.print(F("   drop sensor "));
+  Serial.print(sample.is_raining ? F("wet") : F("dry"));
+  Serial.print(F(" (D5 "));
+  Serial.print(digitalRead(RAIN_DROP_DIGITAL_PIN) == HIGH ? F("HIGH") : F("LOW"));
+  Serial.print(F(", A1 "));
+  Serial.print(sample.rain_analog);
+  Serial.println(')');
+
+  uint32_t total = windPulseTotal;
+  unsigned long dt = now - windDebugLastMs;
+  Serial.print(F("Wind      pulses "));
+  Serial.print(sample.wind_revolutions);
+  Serial.print(F(" per 500 ms   "));
+  Serial.print(dt > 0 ? (total - windPulseDebugLast) * 1000.0f / dt : 0.0f, 1);
+  Serial.print(F(" /s (last "));
+  Serial.print(dt / 1000.0f, 1);
+  Serial.print(F(" s)   total "));
+  Serial.print(total);
+  Serial.print(F("   D3 "));
+  Serial.println(digitalRead(WIND_SENSOR_PIN) == HIGH ? F("HIGH") : F("LOW"));
+  windPulseDebugLast = total;
+  windDebugLastMs = now;
+#else
+  (void)now;
+#endif
 }
 
 // RESET_PIN (D4) is wired to the board's RESET pin. It stays a high-impedance
@@ -1065,7 +1313,7 @@ void setup() {
   pinMode(RAIN_DROP_DIGITAL_PIN, INPUT);
   attachInterrupt(digitalPinToInterrupt(WIND_SENSOR_PIN), windIsr, RISING);
 
-  Serial.begin(9600);
+  Serial.begin(SERIAL_BAUD);
 #if SERIAL_DEBUG
   {
     unsigned long t0 = millis();
@@ -1085,6 +1333,8 @@ void setup() {
   lastUvMs = t0;
   lastRainMs = t0;
   lastDebugMs = t0;
+  lastSensorRetryMs = t0;
+  windDebugLastMs = t0;
 
   DBG_PRINTLN(F("OST Weather Station — UNO R4 WiFi v1.7.0"));
 
@@ -1104,11 +1354,14 @@ void setup() {
 #endif
 
   initializeI2CMultiplexer();
+#if SERIAL_DEBUG
+  scanI2CBus();
+#endif
   initializeBME280();
   initializeMLX90614();
   initializeTSL2591();
   initializePMSA003I();
-  initializeUVSensor();
+  initializeUVSensor(10);
   initializeWiFiModule();
 
   readBME280Data();
@@ -1130,13 +1383,14 @@ void loop() {
   unsigned long now = millis();
 
   runScheduledSensors(now);
+  retryMissingSensors(now);
 
   if (now - lastSnapshotMs >= SNAPSHOT_INTERVAL_MS) {
     takeSnapshot(now);
   }
 
-  if (now - lastDebugMs >= 2000UL) {
-    printDebugInfo();
+  if (now - lastDebugMs >= DEBUG_INTERVAL_MS) {
+    printDebugInfo(now);
     lastDebugMs = now;
   }
 

@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1740 1310" font-family="Inter, Segoe UI, Helvetica, Arial, sans-serif" class="wiring">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1740 1330" font-family="Inter, Segoe UI, Helvetica, Arial, sans-serif" class="wiring">
 <title>OST Weather Station — Wiring (Arduino UNO R4 WiFi)</title>
-<rect x="0" y="0" width="1740" height="1310" fill="#ffffff"/>
+<rect x="0" y="0" width="1740" height="1330" fill="#ffffff"/>
 <text x="40" y="44" font-size="24" font-weight="bold" text-anchor="start" fill="#1d2229" class-="label">OST Weather Station — Wiring (Arduino UNO R4 WiFi)</text>
 <text x="40" y="70" font-size="13" text-anchor="start" fill="#5b6573" class-="label">Firmware v1.7 · pins as in weather_station_r4_wifi.ino · same net label = same rail</text>
 <polyline points="230,265 330,265" fill="none" stroke="#8e2b2b" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" class-="wire" data-net="VIN"/>
@@ -102,15 +102,15 @@
 <text x="1495.0" y="146.0" font-size="15" font-weight="bold" text-anchor="middle" fill="#1d2229" class-="label" data-comp="pms">PMSA003I</text>
 <text x="1495.0" y="166.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="pms">Particulate matter</text>
 <text x="1495.0" y="182.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="pms">0x12 · channel 0</text>
-<text x="1495.0" y="198.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="pms">STEMMA QT cable</text>
+<text x="1495.0" y="198.0" font-size="12" text-anchor="middle" fill="#5b6573" class-="label" data-comp="pms">VIN 5 V, I²C from port 0</text>
 <rect x="1335" y="120" width="10" height="10" rx="2" fill="#ffffff" stroke="#e2622a" stroke-width="2.4" class-="pin" data-net="D6" data-comp="pms"/>
 <text x="1349" y="129" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="D6" data-comp="pms">SET</text>
 <rect x="1335" y="160" width="10" height="10" rx="2" fill="#ffffff" stroke="#2a78d6" stroke-width="2.4" class-="pin" data-net="SD0" data-comp="pms"/>
 <text x="1349" y="169" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="SD0" data-comp="pms">SDA</text>
 <rect x="1335" y="190" width="10" height="10" rx="2" fill="#ffffff" stroke="#159a6a" stroke-width="2.4" class-="pin" data-net="SC0" data-comp="pms"/>
 <text x="1349" y="199" font-size="11" text-anchor="start" fill="#1d2229" class-="label" data-net="SC0" data-comp="pms">SCL</text>
-<rect x="1645" y="140" width="10" height="10" rx="2" fill="#ffffff" stroke="#e07b00" stroke-width="2.4" class-="pin" data-net="3V3" data-comp="pms"/>
-<text x="1641" y="149" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="3V3" data-comp="pms">VIN</text>
+<rect x="1645" y="140" width="10" height="10" rx="2" fill="#ffffff" stroke="#d0342c" stroke-width="2.4" class-="pin" data-net="5V" data-comp="pms"/>
+<text x="1641" y="149" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="5V" data-comp="pms">VIN</text>
 <rect x="1645" y="180" width="10" height="10" rx="2" fill="#ffffff" stroke="#2b2b2b" stroke-width="2.4" class-="pin" data-net="GND" data-comp="pms"/>
 <text x="1641" y="189" font-size="11" text-anchor="end" fill="#1d2229" class-="label" data-net="GND" data-comp="pms">GND</text>
 <rect x="1340" y="270" width="310" height="110" rx="10" fill="#f7f8fa" stroke="#5b6573" stroke-width="2" class-="comp" data-comp="bme"/>
@@ -214,7 +214,7 @@
 <g class-="flag" data-net="5V" data-comp="tca"><line x1="780" y1="460" x2="758" y2="460" stroke="#d0342c" stroke-width="2.4"/><rect x="724" y="451.0" width="34" height="18" rx="4" fill="#ffffff" stroke="#d0342c" stroke-width="1.8"/><text x="741.0" y="464.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#d0342c">5V</text></g>
 <g class-="flag" data-net="GND" data-comp="tca"><line x1="780" y1="500" x2="758" y2="500" stroke="#2b2b2b" stroke-width="2.4"/><line x1="758" y1="500" x2="758" y2="508" stroke="#2b2b2b" stroke-width="2.4"/><line x1="749" y1="508" x2="767" y2="508" stroke="#2b2b2b" stroke-width="2.4"/><line x1="752" y1="511" x2="764" y2="511" stroke="#2b2b2b" stroke-width="2.4"/><line x1="755" y1="514" x2="761" y2="514" stroke="#2b2b2b" stroke-width="2.4"/></g>
 <g class-="flag" data-net="3V3" data-comp="tca"><line x1="880" y1="700" x2="880" y2="722" stroke="#e07b00" stroke-width="2.4"/><rect x="863.0" y="722" width="34" height="18" rx="4" fill="#ffffff" stroke="#e07b00" stroke-width="1.8"/><text x="880.0" y="735.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#e07b00">3V3</text></g>
-<g class-="flag" data-net="3V3" data-comp="pms"><line x1="1650" y1="145" x2="1672" y2="145" stroke="#e07b00" stroke-width="2.4"/><rect x="1672" y="136.0" width="34" height="18" rx="4" fill="#ffffff" stroke="#e07b00" stroke-width="1.8"/><text x="1689.0" y="149.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#e07b00">3V3</text></g>
+<g class-="flag" data-net="5V" data-comp="pms"><line x1="1650" y1="145" x2="1672" y2="145" stroke="#d0342c" stroke-width="2.4"/><rect x="1672" y="136.0" width="34" height="18" rx="4" fill="#ffffff" stroke="#d0342c" stroke-width="1.8"/><text x="1689.0" y="149.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#d0342c">5V</text></g>
 <g class-="flag" data-net="GND" data-comp="pms"><line x1="1650" y1="185" x2="1672" y2="185" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1672" y1="185" x2="1672" y2="193" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1663" y1="193" x2="1681" y2="193" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1666" y1="196" x2="1678" y2="196" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1669" y1="199" x2="1675" y2="199" stroke="#2b2b2b" stroke-width="2.4"/></g>
 <g class-="flag" data-net="3V3" data-comp="bme"><line x1="1650" y1="310" x2="1672" y2="310" stroke="#e07b00" stroke-width="2.4"/><rect x="1672" y="301.0" width="34" height="18" rx="4" fill="#ffffff" stroke="#e07b00" stroke-width="1.8"/><text x="1689.0" y="314.0" font-size="11" font-weight="bold" text-anchor="middle" fill="#e07b00">3V3</text></g>
 <g class-="flag" data-net="GND" data-comp="bme"><line x1="1650" y1="345" x2="1672" y2="345" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1672" y1="345" x2="1672" y2="353" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1663" y1="353" x2="1681" y2="353" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1666" y1="356" x2="1678" y2="356" stroke="#2b2b2b" stroke-width="2.4"/><line x1="1669" y1="359" x2="1675" y2="359" stroke="#2b2b2b" stroke-width="2.4"/></g>
@@ -259,8 +259,9 @@
 <text x="40" y="1160" font-size="14" font-weight="bold" text-anchor="start" fill="#1d2229" class-="label">Notes</text>
 <text x="40" y="1182" font-size="12" text-anchor="start" fill="#1d2229" class-="label">•  Power is drawn as net labels: all pins labelled 5V, 3V3 or GND are connected to that rail.</text>
 <text x="40" y="1201" font-size="12" text-anchor="start" fill="#1d2229" class-="label">•  PCA9548 on the header I²C bus (A4/A5, 5 V logic) with V+ = 5 V; not on the Qwiic port (separate 3.3 V bus Wire1).</text>
-<text x="40" y="1220" font-size="12" text-anchor="start" fill="#1d2229" class-="label">•  Vlogic switch on 3.3 V: the ports supply all I²C sensors with 3.3 V power and logic (on-board regulator, max 500 mA).</text>
-<text x="40" y="1239" font-size="12" text-anchor="start" fill="#1d2229" class-="label">•  Anemometer (reed contact, 2 wires): RC debounce with R1 10 kΩ pull-up to 5 V, C1 100 nF to GND, R2 1 kΩ in series with the contact.</text>
-<text x="40" y="1258" font-size="12" text-anchor="start" fill="#1d2229" class-="label">•  D4 → RESET for the hourly self-reset: firmware keeps D4 an input and only pulls it LOW to reset. D8–D12 are free.</text>
-<text x="40" y="1277" font-size="12" text-anchor="start" fill="#1d2229" class-="label">•  Bulk capacitor on the 5 V rail and 100 nF at every module recommended (PMSA003I fan, WiFi bursts).</text>
+<text x="40" y="1220" font-size="12" text-anchor="start" fill="#1d2229" class-="label">•  Vlogic switch on 3.3 V: the ports supply the I²C sensors with 3.3 V power and logic (on-board regulator, max 500 mA).</text>
+<text x="40" y="1239" font-size="12" text-anchor="start" fill="#1d2229" class-="label">•  PMSA003I: VIN from the 5 V rail (fan current would overheat the 3.3 V regulator); do not connect the red STEMMA QT wire.</text>
+<text x="40" y="1258" font-size="12" text-anchor="start" fill="#1d2229" class-="label">•  Anemometer (reed contact, 2 wires): RC debounce with R1 10 kΩ pull-up to 5 V, C1 100 nF to GND, R2 1 kΩ in series with the contact.</text>
+<text x="40" y="1277" font-size="12" text-anchor="start" fill="#1d2229" class-="label">•  D4 → RESET for the hourly self-reset: firmware keeps D4 an input and only pulls it LOW to reset. D8–D12 are free.</text>
+<text x="40" y="1296" font-size="12" text-anchor="start" fill="#1d2229" class-="label">•  Bulk capacitor on the 5 V rail and 100 nF at every module recommended (PMSA003I fan, WiFi bursts).</text>
 </svg>

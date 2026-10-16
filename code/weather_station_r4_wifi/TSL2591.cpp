@@ -3,6 +3,7 @@
 #include "tsl2591_logic.h"
 
 static UBYTE currentStage = tsl2591::DEFAULT_STAGE;
+static UWORD lastCh0 = 0, lastCh1 = 0;
 /******************************************************************************
 function:	Read one byte of data to TSL2591 via I2C
 parameter:
@@ -104,6 +105,8 @@ int TSL2591_Poll(float *lux)
     if (ch0 < 0 || ch1 < 0) {
         return TSL2591_ERROR;
     }
+    lastCh0 = (UWORD)ch0;
+    lastCh1 = (UWORD)ch1;
 
     UBYTE stage = currentStage;
     bool reportable = tsl2591::isReportable(stage, (uint16_t)ch0, (uint16_t)ch1);
@@ -127,4 +130,15 @@ Info:
 UBYTE TSL2591_Stage(void)
 {
     return currentStage;
+}
+
+/******************************************************************************
+function:	Raw channel counts of the last finished integration
+parameter:
+Info:       For debugging (saturation, stage changes)
+******************************************************************************/
+void TSL2591_LastCounts(UWORD *ch0, UWORD *ch1)
+{
+    *ch0 = lastCh0;
+    *ch1 = lastCh1;
 }

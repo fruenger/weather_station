@@ -24,7 +24,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 BASENAME = 'wiring_r4_wifi'
-WIDTH, HEIGHT = 1740, 1310
+WIDTH, HEIGHT = 1740, 1330
 TITLE = 'OST Weather Station — Wiring (Arduino UNO R4 WiFi)'
 SUBTITLE = 'Firmware v1.7 · pins as in weather_station_r4_wifi.ino · same net label = same rail'
 
@@ -36,10 +36,11 @@ NETS = {
     'VIN': dict(label='VIN 6–24 V', color='#8e2b2b', kind='power',
                 note='Supply input: solar/battery via regulator, or USB 5 V on the bench.'),
     '5V': dict(label='5 V rail', color='#d0342c', kind='power',
-               note='Board 5 V pin: multiplexer V+, rain gauge, rain drop sensor, anemometer.'),
+               note='Board 5 V pin: multiplexer V+, PMSA003I, rain gauge, rain drop sensor, anemometer pull-up.'),
     '3V3': dict(label='3.3 V (mux ports)', color='#e07b00', kind='power',
-                note='3.3 V regulator of the PCA9548 board (Vlogic switch = 3.3 V, max 500 mA), '
-                     'supplied to each sensor through its channel port. The board 3.3 V pin is not used.'),
+                note='3.3 V regulator of the PCA9548 board (Vlogic switch = 3.3 V, max 500 mA), supplied to '
+                     'BME280, SEN0636, MLX90614 and TSL2591 through their channel ports. The board 3.3 V pin '
+                     'is not used.'),
     'GND': dict(label='GND', color='#2b2b2b', kind='ground', note='Common ground of all parts.'),
     'SDA': dict(label='I²C SDA (main bus)', color=SDA_COLOR, kind='i2c',
                 note='A4 → PCA9548 (header bus Wire, 5 V logic; not the 3.3 V Qwiic port).'),
@@ -96,13 +97,15 @@ COMPONENTS = {
                      'level-shifted). Vlogic switch on 3.3 V: every port supplies 3.3 V and 3.3 V I²C from the '
                      'on-board regulator (max 500 mA in total). Address jumpers open → 0x70. The firmware '
                      'switches on one channel before each sensor access.'),
-    'pms': dict(title='PMSA003I', lines=['Particulate matter', '0x12 · channel 0', 'STEMMA QT cable'],
+    'pms': dict(title='PMSA003I', lines=['Particulate matter', '0x12 · channel 0', 'VIN 5 V, I²C from port 0'],
                 box=(1340, 90, 310, 150), kind='sensor',
                 pins=[('SET', 'SET', 'left', 35), ('SDA', 'SDA', 'left', 75), ('SCL', 'SCL', 'left', 105),
                       ('VIN', 'VIN', 'right', 55), ('GND', 'GND', 'right', 95)],
-                info='Adafruit breakout (VIN 3–5 V, fan voltage generated on board) on port 0 with a '
-                     'STEMMA QT cable. Sleeps between measurements (SET = LOW); 60–120 mA while the fan runs. '
-                     'RESET pin not connected (internal pull-up).'),
+                info='Adafruit breakout (VIN 3–5 V). VIN from the 5 V rail: its fan current would overheat the '
+                     '3.3 V regulator of the multiplexer. Only GND, SDA and SCL come from port 0 (header pins or '
+                     'a STEMMA QT cable with the red wire NOT connected, otherwise 5 V feeds back into the port '
+                     '3.3 V). Sleeps between measurements (SET = LOW); 60–120 mA while the fan runs. '
+                     'RESET pin not connected.'),
     'bme': dict(title='BME280', lines=['Temp. / humidity / pressure', '0x76 · channel 1', '3.3 V, no level shifter'],
                 box=(1340, 270, 310, 110), kind='sensor',
                 pins=[('SDA', 'SDA', 'left', 40), ('SCL', 'SCL', 'left', 70),
@@ -156,7 +159,7 @@ FLAGS = [
     ('psu', '-', 'GND'),
     ('r4', '5V', '5V'), ('r4', 'GND', 'GND'),
     ('tca', 'VIN', '5V'), ('tca', 'GND', 'GND'), ('tca', 'VOUT', '3V3'),
-    ('pms', 'VIN', '3V3'), ('pms', 'GND', 'GND'),
+    ('pms', 'VIN', '5V'), ('pms', 'GND', 'GND'),
     ('bme', 'VIN', '3V3'), ('bme', 'GND', 'GND'),
     ('uv', 'VCC', '3V3'), ('uv', 'GND', 'GND'),
     ('mlx', 'VIN', '3V3'), ('mlx', 'GND', 'GND'),
@@ -234,7 +237,8 @@ LEGEND_POS = (800, 905)  # legend: 4 columns x 3 rows
 NOTES = [
     'Power is drawn as net labels: all pins labelled 5V, 3V3 or GND are connected to that rail.',
     'PCA9548 on the header I²C bus (A4/A5, 5 V logic) with V+ = 5 V; not on the Qwiic port (separate 3.3 V bus Wire1).',
-    'Vlogic switch on 3.3 V: the ports supply all I²C sensors with 3.3 V power and logic (on-board regulator, max 500 mA).',
+    'Vlogic switch on 3.3 V: the ports supply the I²C sensors with 3.3 V power and logic (on-board regulator, max 500 mA).',
+    'PMSA003I: VIN from the 5 V rail (fan current would overheat the 3.3 V regulator); do not connect the red STEMMA QT wire.',
     'Anemometer (reed contact, 2 wires): RC debounce with R1 10 kΩ pull-up to 5 V, C1 100 nF to GND, R2 1 kΩ in series with the contact.',
     'D4 → RESET for the hourly self-reset: firmware keeps D4 an input and only pulls it LOW to reset. D8–D12 are free.',
     'Bulk capacitor on the 5 V rail and 100 nF at every module recommended (PMSA003I fan, WiFi bursts).',

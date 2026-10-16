@@ -42,4 +42,6 @@ UBYTE TSL2591_Init(void);
 int TSL2591_Poll(float *lux);
 // Index of the current sensitivity stage (see tsl2591_logic.h)
 UBYTE TSL2591_Stage(void);
+// Raw channel counts of the last finished integration (for debugging)
+void TSL2591_LastCounts(UWORD *ch0, UWORD *ch1);
 #endif

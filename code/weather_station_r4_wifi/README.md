@@ -27,7 +27,7 @@ Compared to the classic setup:
 
 ### Sensors (unchanged)
 
-Same sensors and channel assignment as the classic sender; pin mapping is identical to `weather_station.ino`. The multiplexer is an Adafruit PCA9548 STEMMA QT board (TCA9548A compatible, same address 0x70, no firmware change) on the header I2C bus with V+ = 5 V and its Vlogic switch on 3.3 V, so it also supplies all I2C sensors with 3.3 V. Do not use the R4's Qwiic port for it: that is a separate 3.3 V-only bus (`Wire1`).
+Same sensors and channel assignment as the classic sender; pin mapping is identical to `weather_station.ino`. The multiplexer is an Adafruit PCA9548 STEMMA QT board (TCA9548A compatible, same address 0x70, no firmware change) on the header I2C bus with V+ = 5 V and its Vlogic switch on 3.3 V, so it also supplies the I2C sensors with 3.3 V. Exception: the PMSA003I takes VIN from the 5 V rail (its fan current would overheat the multiplexer's 3.3 V regulator); only GND/SDA/SCL come from port 0, never connect the red STEMMA QT wire. Do not use the R4's Qwiic port for it: that is a separate 3.3 V-only bus (`Wire1`).
 
 | Pin | Function |
 |-----|----------|
@@ -140,13 +140,50 @@ Copy the printed `device_id`, `key_id`, and 64-char hex `secret` into `secrets.h
 
 Open `weather_station_r4_wifi.ino` in the Arduino IDE and upload.
 
-For first tests, set `#define SERIAL_DEBUG 1` in the sketch, open Serial Monitor at **9600 baud**, and verify:
+For first tests, set `#define SERIAL_DEBUG 1` in the sketch, open Serial Monitor at **115200 baud** (`SERIAL_BAUD`), and verify:
 
 - All sensors initialize
 - `weatherHmacSelfTest OK` (known test vectors)
 - `NTP time synced` before any upload
 - `Upload mode: startup live (1 Hz)` then uploads each second
 - After 5 min: `Upload mode: burst (buffered)` and `Burst upload: N samples`
+
+At boot (debug only) an **I2C scan** lists the devices on the main bus and on every multiplexer channel, and marks missing expected sensors:
+
+```
+I2C scan
+  main bus: 0x70 (multiplexer)
+  channel 0: -   <-- expected 0x12 (PMSA003I), answers only while awake
+  channel 1: 0x76 (BME280)
+  channel 2: 0x23 (SEN0636)
+  channel 3: 0x5A (MLX90614)
+  channel 4: -   <-- expected 0x29 (TSL2591)
+  channel 5: -
+  ...
+```
+
+Nothing on a channel means no power or no I2C connection on that port (check wire order: black GND, red 3.3 V, blue SDA, yellow SCL); a device at an unexpected address points to a different module or address jumper. Sensors not found at boot are searched again every `SENSOR_RETRY_INTERVAL_MS` (60 s), so a sensor plugged in or repaired later is picked up without a reset.
+
+Every `DEBUG_INTERVAL_MS` (2 s) a sensor report shows the current reading of each sensor (`not available` if it was not found at boot):
+
+```
+--- t=125 s [live]  buffer 0/130  pkt 118  uploads ok/failed 118/0
+BME280    T 21.34 C   RH 45.2 %   p 1013.2 hPa
+MLX90614  sky 18.20 C   box 22.10 C   sky-box -3.90 K   sky-air -3.14 K
+TSL2591   1234.567 lx   ch0 2861  ch1 512   stage 3 (25x 400 ms)
+SEN0636   UV index 1   raw 412
+PMSA003I  PM1.0 3  PM2.5 5  PM10 6 ug/m3   asleep, next in 212 s
+Rain      tips 2 since boot   D2 HIGH   drop sensor dry (D5 HIGH, A1 1015)
+Wind      pulses 3 per 500 ms   6.0 /s (last 2.0 s)   total 412   D3 HIGH
+```
+
+Hardware checks with the report:
+
+- **TSL2591:** cover the sensor and shine a lamp on it; the stage should step up in the dark and down in bright light, `ch0` should stay below ~90 % of full scale (36863 at 100 ms, 65535 otherwise) except in direct sun on stage 0.
+- **SEN0636:** `raw` resolves much finer than the integer UV index, useful to compare windows (plexiglass vs. quartz).
+- **Rain gauge:** tip the bucket slowly by hand and count; `tips` should increase by exactly one per tip. The firmware counts every change of D2, so a reed that only closes briefly while the bucket passes would count two per tip.
+- **Anemometer:** turn the cups slowly by hand, one revolution at a time; the pulse total should increase by the number of contact closures per revolution, not by more (otherwise check the RC debounce on D3).
+- **Rain drop sensor:** a wet finger on the plate switches it to `wet` and lowers `A1`.
 
 For deployment, set `SERIAL_DEBUG 0` and re-flash.
 
