@@ -80,6 +80,7 @@ std::string hmacSha256Hex(const uint8_t *key, size_t keyLen, const std::string &
 
 std::string buildCanonical(
     const char *path,
+    const char *contentType,
     const char *deviceId,
     const char *keyId,
     const char *timestamp,
@@ -91,7 +92,8 @@ std::string buildCanonical(
   canonical.append("POST\n");
   canonical.append(path);
   canonical.append("\n");
-  canonical.append("application/x-www-form-urlencoded\n");
+  canonical.append(contentType);
+  canonical.append("\n");
   canonical.append(deviceId);
   canonical.append("\n");
   canonical.append(keyId);
@@ -118,15 +120,34 @@ int main() {
   }
 
   std::string canonical = buildCanonical(
-      kPath, kDevice, kKeyId, kTimestamp, kNonceHex, bodyDigest.c_str());
+      kPath, "application/x-www-form-urlencoded", kDevice, kKeyId, kTimestamp, kNonceHex,
+      bodyDigest.c_str());
   std::string signature = hmacSha256Hex(secret, sizeof(secret), canonical);
   if (signature != kExpectedSignature) {
     std::fprintf(stderr, "signature mismatch\n  got: %s\n  exp: %s\n", signature.c_str(), kExpectedSignature);
     return 1;
   }
 
+  // Bulk endpoint vector (CSV body, own path and content type)
+  const char *bulkBody =
+      "jd,temperature,pressure,humidity,illuminance,wind_speed,rain,sky_temp,box_temp,"
+      "is_raining,pm1_0,pm2_5,pm10,uv_index\n"
+      "2460000.0000000,20.00,1013.00,50.00,100.000,0,0.00,10.00,15.00,0,1,2,3,0\n";
+  std::string bulkDigest = sha256Hex(reinterpret_cast<const uint8_t *>(bulkBody), std::strlen(bulkBody));
+  std::string bulkSignature = hmacSha256Hex(
+      secret, sizeof(secret),
+      buildCanonical("/weather_station/weather_api/datasets/bulk/", "text/csv", kDevice, kKeyId,
+                     kTimestamp, kNonceHex, bulkDigest.c_str()));
+  if (bulkDigest != "012f723a4f081f2da62da1e2d7d3fcf7bcd4bb5a1405257ab8ffb33fd166f2df" ||
+      bulkSignature != "1fc948e3deaaee6ea8f66087dc3e9e96a09c3f07efcb09e1141e3b9d7218b2e8") {
+    std::fprintf(stderr, "bulk vector mismatch\n  digest: %s\n  signature: %s\n",
+                 bulkDigest.c_str(), bulkSignature.c_str());
+    return 1;
+  }
+
   std::printf("hmac_selftest: OK\n");
   std::printf("  body_sha256_hex=%s\n", bodyDigest.c_str());
   std::printf("  signature_hex=%s\n", signature.c_str());
+  std::printf("  bulk signature_hex=%s\n", bulkSignature.c_str());
   return 0;
 }

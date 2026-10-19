@@ -25,3 +25,10 @@ signature_hex=17dcbd5904c2dbf8a7780e2e90a8b63cb91fda199810fa18a24b1a3fb9a87c3c
 # 1700000000
 # 00112233445566778899aabbccddeeff
 # 272add28edef85bb137dd1dec6f7c69d5a74f13f2032f00507465a8e564fb7f9
+
+# Bulk endpoint (same secret, device, key, timestamp, nonce):
+path=/weather_station/weather_api/datasets/bulk/
+content_type=text/csv
+body=jd,temperature,pressure,humidity,illuminance,wind_speed,rain,sky_temp,box_temp,is_raining,pm1_0,pm2_5,pm10,uv_index\n2460000.0000000,20.00,1013.00,50.00,100.000,0,0.00,10.00,15.00,0,1,2,3,0\n
+body_sha256_hex=012f723a4f081f2da62da1e2d7d3fcf7bcd4bb5a1405257ab8ffb33fd166f2df
+signature_hex=1fc948e3deaaee6ea8f66087dc3e9e96a09c3f07efcb09e1141e3b9d7218b2e8

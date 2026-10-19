@@ -119,8 +119,17 @@ bool weatherHmacBodySha256Hex(const uint8_t *body, size_t bodyLen, char *hexOut,
   return true;
 }
 
+bool weatherHmacDigestToHex(const uint8_t digest[32], char *hexOut, size_t hexOutSize) {
+  if (digest == NULL || hexOut == NULL || hexOutSize < (WEATHER_HMAC_SHA256_HEX_LEN + 1)) {
+    return false;
+  }
+  bytesToHexLower(digest, 32, hexOut);
+  return true;
+}
+
 bool weatherHmacBuildCanonical(
     const char *path,
+    const char *contentType,
     const char *deviceId,
     const char *keyId,
     const char *timestamp,
@@ -128,8 +137,8 @@ bool weatherHmacBuildCanonical(
     const char *bodyDigestHex,
     char *canonicalOut,
     size_t canonicalOutSize) {
-  if (path == NULL || deviceId == NULL || keyId == NULL || timestamp == NULL ||
-      nonceHex == NULL || bodyDigestHex == NULL || canonicalOut == NULL) {
+  if (path == NULL || contentType == NULL || deviceId == NULL || keyId == NULL ||
+      timestamp == NULL || nonceHex == NULL || bodyDigestHex == NULL || canonicalOut == NULL) {
     return false;
   }
 
@@ -140,7 +149,7 @@ bool weatherHmacBuildCanonical(
       WEATHER_HMAC_PROTOCOL,
       WEATHER_HMAC_METHOD,
       path,
-      WEATHER_HMAC_CONTENT_TYPE,
+      contentType,
       deviceId,
       keyId,
       timestamp,
@@ -170,23 +179,18 @@ bool weatherHmacSignCanonical(const char *canonical, char *signatureHexOut, size
   return true;
 }
 
-bool weatherHmacSignBody(
+bool weatherHmacSignDigestHex(
     const char *path,
+    const char *contentType,
     const char *deviceId,
     const char *keyId,
     const char *timestamp,
-    const uint8_t *body,
-    size_t bodyLen,
+    const char *bodyDigestHex,
     char *nonceHexOut,
     size_t nonceHexOutSize,
     char *signatureHexOut,
     size_t signatureHexOutSize) {
   if (!g_secretReady || !g_rngReady) {
-    return false;
-  }
-
-  char bodyDigestHex[WEATHER_HMAC_SHA256_HEX_LEN + 1];
-  if (!weatherHmacBodySha256Hex(body, bodyLen, bodyDigestHex, sizeof(bodyDigestHex))) {
     return false;
   }
 
@@ -201,6 +205,7 @@ bool weatherHmacSignBody(
   char canonical[WEATHER_HMAC_CANONICAL_MAX];
   if (!weatherHmacBuildCanonical(
           path,
+          contentType,
           deviceId,
           keyId,
           timestamp,
@@ -212,6 +217,26 @@ bool weatherHmacSignBody(
   }
 
   return weatherHmacSignCanonical(canonical, signatureHexOut, signatureHexOutSize);
+}
+
+bool weatherHmacSignBody(
+    const char *path,
+    const char *deviceId,
+    const char *keyId,
+    const char *timestamp,
+    const uint8_t *body,
+    size_t bodyLen,
+    char *nonceHexOut,
+    size_t nonceHexOutSize,
+    char *signatureHexOut,
+    size_t signatureHexOutSize) {
+  char bodyDigestHex[WEATHER_HMAC_SHA256_HEX_LEN + 1];
+  if (!weatherHmacBodySha256Hex(body, bodyLen, bodyDigestHex, sizeof(bodyDigestHex))) {
+    return false;
+  }
+  return weatherHmacSignDigestHex(
+      path, WEATHER_HMAC_CONTENT_TYPE, deviceId, keyId, timestamp, bodyDigestHex,
+      nonceHexOut, nonceHexOutSize, signatureHexOut, signatureHexOutSize);
 }
 
 bool weatherHmacSelfTest(void) {
@@ -256,6 +281,7 @@ bool weatherHmacSelfTest(void) {
   char canonical[WEATHER_HMAC_CANONICAL_MAX];
   if (!weatherHmacBuildCanonical(
           kPath,
+          WEATHER_HMAC_CONTENT_TYPE,
           kDevice,
           kKeyId,
           kTimestamp,
@@ -273,6 +299,35 @@ bool weatherHmacSelfTest(void) {
     return false;
   }
   if (strcmp(signatureHex, kExpectedSignature) != 0) {
+    weatherHmacShutdown();
+    return false;
+  }
+
+  // Bulk vector (docs/upload-hmac-v1.md): CSV body hashed line by line, as the
+  // firmware does for bulk uploads
+  static const char kBulkPath[] = "/weather_station/weather_api/datasets/bulk/";
+  static const char *const kBulkLines[] = {
+      "jd,temperature,pressure,humidity,illuminance,wind_speed,rain,sky_temp,box_temp,"
+      "is_raining,pm1_0,pm2_5,pm10,uv_index\n",
+      "2460000.0000000,20.00,1013.00,50.00,100.000,0,0.00,10.00,15.00,0,1,2,3,0\n",
+  };
+  static const char kExpectedBulkDigest[] =
+      "012f723a4f081f2da62da1e2d7d3fcf7bcd4bb5a1405257ab8ffb33fd166f2df";
+  static const char kExpectedBulkSignature[] =
+      "1fc948e3deaaee6ea8f66087dc3e9e96a09c3f07efcb09e1141e3b9d7218b2e8";
+  SHA256_CTX ctx;
+  sha256_init(&ctx);
+  for (size_t i = 0; i < sizeof(kBulkLines) / sizeof(kBulkLines[0]); i++) {
+    sha256_update(&ctx, (const uint8_t *)kBulkLines[i], strlen(kBulkLines[i]));
+  }
+  uint8_t bulkDigest[32];
+  sha256_final(&ctx, bulkDigest);
+  bytesToHexLower(bulkDigest, sizeof(bulkDigest), bodyDigestHex);
+  if (strcmp(bodyDigestHex, kExpectedBulkDigest) != 0 ||
+      !weatherHmacBuildCanonical(kBulkPath, WEATHER_HMAC_BULK_CONTENT_TYPE, kDevice, kKeyId,
+                                 kTimestamp, kNonceHex, bodyDigestHex, canonical, sizeof(canonical)) ||
+      !weatherHmacSignCanonical(canonical, signatureHex, sizeof(signatureHex)) ||
+      strcmp(signatureHex, kExpectedBulkSignature) != 0) {
     weatherHmacShutdown();
     return false;
   }

@@ -4,7 +4,9 @@
 
 **Context (firmware v1.4+):** The R4 WiFi uploads **raw anemometer revolutions per 500 ms snapshot** (`wind_speed` field). There is no 10 s rolling average or gust detection on the device anymore.
 
-**Problem:** The website currently assumes `wind_speed` is revolutions per **1 s** and multiplies by `WIND_ROTATIONS_TO_MPS = 0.14` (`datasets/views.py`, `datasets/plots.py`). The dashboard header averages over ~2 minutes (`JD_TWO_MINUTES`), not 10 s. With 500 ms samples this understates wind by ~2× until conversion is fixed.
+**Update v1.9:** snapshots are 1 Hz again, so `wind_speed` is revolutions per **1 s** and the website's conversion (`× 0.14`) is correct; the factor-2 problem of the 500 ms samples (v1.4–v1.8) is gone. Points 3–4 below (10 s mean, gusts) remain open.
+
+**Problem (v1.4–v1.8):** The website assumes `wind_speed` is revolutions per **1 s** and multiplies by `WIND_ROTATIONS_TO_MPS = 0.14` (`datasets/views.py`, `datasets/plots.py`). The dashboard header averages over ~2 minutes (`JD_TWO_MINUTES`), not 10 s. With 500 ms samples this understated wind by ~2×.
 
 **Proposal:**
 
@@ -32,48 +34,6 @@ Still open:
 
 ---
 
-## Bulk upload API (optional server optimization)
+## Bulk upload API (done in v1.9)
 
-**Problem:** In burst mode the Arduino uploads up to ~60 samples per minute via separate HTTP POST requests on one keep-alive TLS connection. Each POST still carries full HTTP headers and Django/DRF processing overhead.
-
-**Proposal:** Add a bulk ingestion endpoint on the Django website, e.g.:
-
-```
-POST /weather_station/weather_api/datasets/bulk/
-Content-Type: application/json
-Authorization: Basic …
-
-{
-  "samples": [
-    {
-      "jd": 2460123.45678,
-      "temperature": 23.45,
-      "pressure": 1013.2,
-      …
-    },
-    …
-  ]
-}
-```
-
-**Benefits:**
-
-- One HTTP request per burst instead of ~60
-- Shorter WiFi active time → lower energy use on solar power
-- Less server load (one transaction, optional `bulk_create`)
-
-**Implementation sketch (website):**
-
-1. Add `BulkDatasetSerializer` in `datasets/api/serializers.py` (list of `DatasetSerializer` fields, max e.g. 120 items).
-2. Add `BulkCreateDatasetView` in `datasets/api/views.py` with same auth as `CreateDatasetView`.
-3. Register URL in `datasets/api/urls.py`.
-4. Add tests in `datasets/tests.py` (valid bulk, partial validation errors, empty list).
-5. Update `weather_station_r4_wifi.ino` to send JSON bulk in `flushRingBuffer()` when endpoint is available.
-
-**Arduino side (after server is ready):**
-
-- Use `ArduinoJson` to build a compact JSON array from `ringBuffer[]`.
-- Single `POST` per burst with `Content-Type: application/json`.
-- Fallback: keep existing per-sample keep-alive POSTs if bulk returns 404.
-
-**Priority:** Low — current keep-alive burst is acceptable; implement when field deployment shows upload time or server load is an issue.
+Implemented: `POST /weather_api/datasets/bulk/` on the website (CSV body, WEATHER-HMAC-V1 signed for the bulk path and `text/csv`) and in the firmware (`flushRingBuffer()` → `postBulk()`, body hashed and sent line by line). One request per minute instead of one per sample. See README → *Bulk upload and I2C recovery (v1.9)* and the website `docs/upload-hmac-v1.md`.
