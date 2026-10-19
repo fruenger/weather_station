@@ -59,7 +59,9 @@ Pin     Function                          Notes
 D2      Rain gauge reed module OUT        INPUT, pull-up on the module
 D3      Anemometer (reed contact)         INPUT, interrupt RISING; external RC debounce
                                           (R1 10k pull-up, C1 100n, R2 1k), see below
-D4      -> RESET pin of the board         Hourly self-reset (RESET_PIN, RESET_INTERVAL).
+D4      -> RESET pin of the board         Periodic self-reset (RESET_PIN, RESET_INTERVAL),
+                                          off by default since firmware 1.9.1
+                                          (AUTO_RESET_ENABLED); wiring kept.
                                           Firmware keeps D4 as INPUT and only switches it
                                           to OUTPUT LOW for the reset; never drive it HIGH
                                           (pinMode(OUTPUT) starts LOW -> reset loop)

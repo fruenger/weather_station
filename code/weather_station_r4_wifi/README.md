@@ -34,7 +34,7 @@ Same sensors and channel assignment as the classic sender; pin mapping is identi
 | A4 (SDA), A5 (SCL) | I2C → PCA9548 (header bus `Wire`, 5 V logic) |
 | D2 | Rain reed (tipping bucket) |
 | D3 | Anemometer reed contact (interrupt), external RC debounce: R1 10 kΩ to 5 V, C1 100 nF to GND, R2 1 kΩ to the contact |
-| D4 | → RESET pin: hourly self-reset (input during operation, output LOW to reset) |
+| D4 | → RESET pin: periodic self-reset, off by default since v1.9.1 (`AUTO_RESET_ENABLED`); input during operation, output LOW to reset |
 | D5 | Rain drop digital |
 | D6 | PMSA003I SET (sleep/wake) |
 | A1 | Rain drop analog |
@@ -285,6 +285,7 @@ Unit conversions applied in firmware:
 | `LIVE_RETRY_DELAY_MS` | `10000` | Pause after a failed live upload |
 | `WATCHDOG_TIMEOUT_MS` | `120000` | Software watchdog: reset after 2 min without loop progress |
 | `UPLOAD_STALL_RESET_MS` | `600000` | Reset after 10 min without a successful upload |
+| `AUTO_RESET_ENABLED` | `0` | Periodic self-reset every `RESET_INTERVAL` (1 h) through D4 → RESET |
 | `SENSOR_FAIL_LIMIT` | `3` | Implausible readings in a row before a sensor is re-initialised |
 | `I2C_RECOVERY_MIN_INTERVAL_MS` | `10000` | Minimum time between I2C bus recoveries (doubles up to 5 min) |
 | `NTP_RESYNC_INTERVAL_MS` | `1200000` | Re-sync NTP every 20 min |
@@ -318,7 +319,7 @@ Unit conversions applied in firmware:
 | `No successful upload for 10 min, resetting` | Upload stall reset; check WiFi, server and the lines before |
 | `Burst time limit reached` | Many samples queued (e.g. after an outage); the rest follows |
 | `watchdog OFF` in the debug report | No free timer for the software watchdog |
-| Station restarts by itself | Software watchdog (loop blocked > 2 min) or hourly reset via D4 |
+| Station restarts by itself | Software watchdog (loop blocked > 2 min), upload stall reset (10 min), or the periodic reset via D4 if `AUTO_RESET_ENABLED` is 1 |
 | `NTP time sync failed` | Internet access from observatory WiFi |
 | `Upload skipped: time not synced` | Wait for NTP; uploads buffer until clock is valid |
 | `weatherHmacSelfTest failed` | SHA256/HMAC mismatch — re-flash; check `sha256.c` is compiled with the sketch |

@@ -262,6 +262,6 @@
 <text x="40" y="1220" font-size="12" text-anchor="start" fill="#1d2229" class-="label">•  Vlogic switch on 3.3 V: the ports supply the I²C sensors with 3.3 V power and logic (on-board regulator, max 500 mA).</text>
 <text x="40" y="1239" font-size="12" text-anchor="start" fill="#1d2229" class-="label">•  PMSA003I: VIN from the 5 V rail (fan current would overheat the 3.3 V regulator); do not connect the red STEMMA QT wire.</text>
 <text x="40" y="1258" font-size="12" text-anchor="start" fill="#1d2229" class-="label">•  Anemometer (reed contact, 2 wires): RC debounce with R1 10 kΩ pull-up to 5 V, C1 100 nF to GND, R2 1 kΩ in series with the contact.</text>
-<text x="40" y="1277" font-size="12" text-anchor="start" fill="#1d2229" class-="label">•  D4 → RESET for the hourly self-reset: firmware keeps D4 an input and only pulls it LOW to reset. D8–D12 are free.</text>
+<text x="40" y="1277" font-size="12" text-anchor="start" fill="#1d2229" class-="label">•  D4 → RESET for the optional periodic self-reset (off by default since firmware 1.9.1). D8–D12 are free.</text>
 <text x="40" y="1296" font-size="12" text-anchor="start" fill="#1d2229" class-="label">•  Bulk capacitor on the 5 V rail and 100 nF at every module recommended (PMSA003I fan, WiFi bursts).</text>
 </svg>

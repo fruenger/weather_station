@@ -60,7 +60,8 @@ NETS = {
     'D6': dict(label='D6 PMSA003I SET', color='#e2622a', kind='signal',
                note='LOW = sleep, HIGH = active; firmware measures every 5 min.'),
     'D4': dict(label='D4 → RESET', color='#795548', kind='signal',
-               note='Hourly self-reset: D4 is an input during operation and is switched to '
+               note='Periodic self-reset (off by default since firmware 1.9.1, AUTO_RESET_ENABLED): '
+                    'D4 is an input during operation and is switched to '
                     'output LOW to pull RESET (firmware checkAutoReset()).'),
 }
 for ch, sensor in [(0, 'PMSA003I'), (1, 'BME280'), (2, 'SEN0636'), (3, 'MLX90614'), (4, 'TSL2591')]:
@@ -86,7 +87,7 @@ COMPONENTS = {
                      ('D2', 'D2', 'bottom', 30), ('D3', 'D3', 'bottom', 75), ('D5', 'D5', 'bottom', 120),
                      ('A1', 'A1', 'bottom', 165), ('D4', 'D4', 'bottom', 205), ('RST', 'RESET', 'bottom', 238)],
                info='Reads all sensors and uploads every 60 s via HTTPS. D4 is wired to RESET for the '
-                    'hourly self-reset; it stays an input until the reset (never driven HIGH).'),
+                    'periodic self-reset (off by default since v1.9.1); it stays an input until the reset (never driven HIGH).'),
     'tca': dict(title='PCA9548', lines=['I²C mux · 0x70', 'Adafruit board', 'V+ 5 V', 'Vlogic 3.3 V'],
                 box=(780, 300, 200, 400), kind='mux',
                 pins=[('SDA', 'SDA', 'left', 40), ('SCL', 'SCL', 'left', 80), ('VIN', 'V+', 'left', 160),
@@ -240,7 +241,7 @@ NOTES = [
     'Vlogic switch on 3.3 V: the ports supply the I²C sensors with 3.3 V power and logic (on-board regulator, max 500 mA).',
     'PMSA003I: VIN from the 5 V rail (fan current would overheat the 3.3 V regulator); do not connect the red STEMMA QT wire.',
     'Anemometer (reed contact, 2 wires): RC debounce with R1 10 kΩ pull-up to 5 V, C1 100 nF to GND, R2 1 kΩ in series with the contact.',
-    'D4 → RESET for the hourly self-reset: firmware keeps D4 an input and only pulls it LOW to reset. D8–D12 are free.',
+    'D4 → RESET for the optional periodic self-reset (off by default since firmware 1.9.1). D8–D12 are free.',
     'Bulk capacitor on the 5 V rail and 100 nF at every module recommended (PMSA003I fan, WiFi bursts).',
 ]
 

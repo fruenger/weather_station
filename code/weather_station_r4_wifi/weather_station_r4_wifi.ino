@@ -1,6 +1,6 @@
 /*
  * Weather Station - Arduino UNO R4 WiFi
- * Version: 1.9.0
+ * Version: 1.9.1
  *
  * Cooperative scheduler: each sensor at its own interval (<= 2 Hz).
  * One snapshot per second (1 Hz) with last-known values for slower sensors;
@@ -111,6 +111,10 @@ const uint16_t API_PORT = 443;
 #define DBG_PRINTLN(...) ((void)0)
 #endif
 
+// Periodic self-reset through D4 -> RESET. Off since v1.9.1: the software
+// watchdog and the upload stall reset catch hangs, and every reset cost ~1 min of
+// data plus 5 min live mode. Set to 1 to re-enable.
+#define AUTO_RESET_ENABLED 0
 #define RESET_INTERVAL 3600000UL
 #define RAIN_MM_PER_TIP 1.25f
 
@@ -1746,7 +1750,7 @@ void printDebugInfo(unsigned long now) {
 // on the R4 core pinMode(OUTPUT) drives LOW immediately, so driving it HIGH at
 // boot would pulse RESET and make the board reset in a loop.
 void checkAutoReset() {
-  if (millis() > RESET_INTERVAL) {
+  if (AUTO_RESET_ENABLED && millis() > RESET_INTERVAL) {
     digitalWrite(RESET_PIN, LOW);
     pinMode(RESET_PIN, OUTPUT);
   }
@@ -1786,7 +1790,7 @@ void setup() {
   windDebugLastMs = t0;
   lastSuccessfulUploadMs = t0;
 
-  DBG_PRINTLN(F("OST Weather Station — UNO R4 WiFi v1.9.0"));
+  DBG_PRINTLN(F("OST Weather Station — UNO R4 WiFi v1.9.1"));
 
   if (!weatherHmacInit(SECRET_HMAC_SECRET_HEX)) {
     DBG_PRINTLN(F("ERROR: weatherHmacInit failed"));
@@ -1820,6 +1824,9 @@ void setup() {
   readUVIndexData();
   processRainReed();
   readRainDropData();
+  // First PM measurement right after boot (values after ~35 s instead of 5 min;
+  // until then 0 is sent)
+  last_pm_measurement = t0 - PM_MEASUREMENT_INTERVAL;
   servicePmsa003I(t0);
 
   DBG_PRINTLN(F("Initialization complete"));
