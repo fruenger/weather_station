@@ -1,0 +1,39 @@
+# Host self-tests of the R4 WiFi firmware (no board required):
+# WEATHER-HMAC-V1 vectors, bulk CSV body + incremental SHA-256, TSL2591 lux formula.
+name: firmware-selftests
+
+on:
+  push:
+    paths:
+      - 'code/weather_station_r4_wifi/**'
+      - '.github/workflows/firmware-selftests.yml'
+  pull_request:
+    paths:
+      - 'code/weather_station_r4_wifi/**'
+      - '.github/workflows/firmware-selftests.yml'
+
+jobs:
+  selftests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: code/weather_station_r4_wifi/tools
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install build tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libssl-dev g++
+      - name: HMAC vectors
+        run: |
+          g++ -std=c++17 -Wall -Wextra -o hmac_selftest hmac_selftest.cpp -lcrypto
+          ./hmac_selftest
+      - name: Bulk CSV body
+        run: |
+          gcc -Wall -c ../sha256.c -o sha256.o
+          g++ -std=c++17 -Wall -Wextra -o bulk_csv_selftest bulk_csv_selftest.cpp sha256.o
+          ./bulk_csv_selftest
+      - name: TSL2591 lux formula
+        run: |
+          g++ -std=c++17 -Wall -Wextra -o tsl2591_selftest tsl2591_selftest.cpp
+          ./tsl2591_selftest

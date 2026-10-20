@@ -1,233 +1,54 @@
-# Arduino Weather Station with Wireless Data Transmission for the OST Observatory
+# OST Observatory Weather Station
 
-A comprehensive weather monitoring system built with Arduino microcontrollers that collects environmental data from multiple sensors and transmits it wirelessly to a receiver for data logging and remote upload.
-
-## Project Overview
-
-This weather station consists of two main components:
-
-- **Sender Arduino**: Collects data from various environmental sensors
-- **Receiver Arduino**: Receives data wirelessly and forwards it to a Python script for processing and server upload
-
-The system uses nRF24L01 radio modules for wireless communication and supports real-time monitoring of temperature, humidity, pressure, light levels, wind speed, rainfall, and air quality.
-
-### Arduino UNO R4 WiFi (all-in-one alternative)
-
-An optional **single-board** setup uploads directly to the Django API over WiFi — no nRF24, no receiver Arduino, and no `receive.py` on a PC. See:
-
-- Sketch: `code/weather_station_r4_wifi/weather_station_r4_wifi.ino`
-- Setup guide: `code/weather_station_r4_wifi/README.md`
-- Wiring: `wiring/pin_connections_r4_wifi.txt`, diagram `wiring/wiring_r4_wifi.svg` (interactive: `wiring/wiring_r4_wifi.html`)
-
-## Hardware Components
-
-### Sensors
-
-- **BME280**: Temperature, humidity, and barometric pressure sensor
-- **TSL2591**: High-precision light sensor for illuminance measurement
-- **MLX90614**: Infrared temperature sensor for sky and enclosure temperature
-- **Rain Reed Switch**: Tipping bucket rain gauge for rainfall measurement
-- **Rain Drop Sensor**: Analog rain detection sensor
-- **Anemometer**: Wind speed measurement via reed switch
-- **PMSA003I**: Particulate matter sensor (PM1.0, PM2.5, PM10) with sleep/wake power management
-- **SEN0636**: DFRobot Gravity UV Index sensor (240–370 nm, I2C)
-
-### Microcontrollers & Communication
-
-- **2x Arduino Nano/Uno**: One for sensor data collection, one for data reception
-- **2x nRF24L01+**: 2.4GHz radio modules for wireless data transmission
-- **TCA9548A I2C Multiplexer**: Allows multiple I2C sensors on a single bus
-
-### Power & Connectivity
-
-- **USB Connection**: For receiver Arduino to computer communication
-- **5V Power Supply**: For sender Arduino and sensors
-
-## Data Format
-
-The system transmits 16 int16_t values (32 bytes total - nRF24L01 hardware limit):
+Arduino weather station on the roof of the OST observatory. An **Arduino UNO R4 WiFi** reads all sensors once per second and uploads the data over HTTPS to the observatory website (Django, repository `ost_weather_station_website`), which stores, plots and evaluates it, including cloud detection from the sky sensors.
 
 ```
-[timestamp, temperature*100, pressure*10, humidity*100, illuminance, rain_tips, wind_revolutions, packet_number, sky_temp*100, box_temp*100, rain_detection, rain_analog, pm1_0, pm2_5, pm10, uv_index]
+[Sensors + PCA9548 I2C multiplexer] ──I2C/GPIO──► [UNO R4 WiFi] ──HTTPS (WEATHER-HMAC-V1)──► [Website API]
 ```
 
-### Data Scaling
+Setup, configuration, upload protocol and troubleshooting: **[code/weather_station_r4_wifi/README.md](code/weather_station_r4_wifi/README.md)**.
 
-- Temperature: Scaled by 100 (e.g., 23.45°C → 2345)
-- Pressure: Scaled by 10 (e.g., 1013.25 hPa → 10132)
-- Humidity: Scaled by 100 (e.g., 45.67% → 4567)
-- Infrared temperatures: Scaled by 100
+## Sensors
 
-## Software Components
+| Sensor | Measures | Connection |
+|---|---|---|
+| BME280 | Temperature, humidity, pressure | I2C, multiplexer channel 1 |
+| TSL2591 | Illuminance (sky-facing) | I2C, channel 4 |
+| MLX90614 | Sky temperature (IR) and box temperature | I2C, channel 3 |
+| DFRobot SEN0636 | UV index (240–370 nm) | I2C, channel 2 |
+| PMSA003I | Particulate matter PM1.0 / PM2.5 / PM10, sleeps between measurements | I2C, channel 0; SET on D6 |
+| Tipping-bucket rain gauge | Rainfall (reed contact) | D2 |
+| Rain drop module | Rain detection | D5 digital, A1 analog |
+| Anemometer | Wind speed (reed contact, RC debounce) | D3 |
 
-### Arduino Code
+The multiplexer is an Adafruit PCA9548 STEMMA QT board (TCA9548A compatible, 0x70) on A4/A5. The station runs on a 30 W solar panel with a 33 Ah lead-acid battery.
 
-- **weather_station.ino**: Main sender code with all sensor integrations
-- **receive.ino**: Receiver code for wireless data reception
-- **TSL2591 Library**: Light sensor interface
-- **BME280 Library**: Environmental sensor interface
-- **MLX90614 Library**: Infrared temperature sensor interface
-- **Adafruit PM25 AQI Library**: PMSA003I particulate matter sensor interface
-- **DFRobot UVIndex240370Sensor + RTU**: SEN0636 UV index sensor interface
-
-### Python Processing
-
-- **receive.py**: Main data processing and server upload script
-- **config.py**: Configuration management for server credentials
-- **wiring/wiring_diagram.py**: Generates the R4 WiFi wiring diagram (`wiring_r4_wifi.svg`, `.png`, interactive `.html`) from one description of components, pins and connections; run `python3 wiring/wiring_diagram.py` after wiring changes
-
-## Setup Instructions
-
-### 1. Hardware Assembly
-
-1. Connect sensors to the sender Arduino according to the pin connections:
-   
-   - BME280: I2C (SDA/SCL)
-   - TSL2591: I2C via TCA9548A multiplexer
-   - MLX90614: I2C via TCA9548A multiplexer
-   - PMSA003I: I2C via TCA9548A multiplexer (Channel 0), SET pin on D6
-   - SEN0636: I2C via TCA9548A multiplexer (Channel 2), mode switch on I2C
-   - Rain reed switch: Digital pin
-   - Rain drop sensor: Analog + Digital pins
-   - Anemometer: Digital pin
-
-2. Connect nRF24L01 modules:
-   
-   - Sender: CE, CSN, MOSI, MISO, SCK, VCC, GND
-   - Receiver: Same connections
-
-3. Power the sender Arduino with 5V supply
-
-### 2. Software Installation
-
-1. Install required Arduino libraries:
-   
-   - Adafruit BME280 Library
-   - Adafruit MLX90614 Library
-   - Adafruit PM25 AQI Library
-   - Adafruit BusIO
-   - DFRobot UVIndex240370Sensor + DFRobot RTU
-   - RF24 Library
-
-2. Install Python dependencies:
-   
-   ```bash
-   pip install pyserial numpy requests astropy
-   ```
-
-### 3. Configuration
-
-1. Create `weather_station_config.json` in the receive directory:
-   
-   ```json
-   {
-     "server": {
-       "url": "your_server_url",
-       "username": "your_username",
-       "password": "your_password"
-     },
-     "arduino": {
-       "port_search": "ttyUSB"
-     }
-   }
-   ```
-
-### 4. Upload Code
-
-1. Upload `weather_station.ino` to the sender Arduino
-2. Upload `receive.ino` to the receiver Arduino
-3. Connect receiver Arduino to computer via USB
-
-### 5. Start Data Collection
-
-1. Run the Python receiver script:
-   
-   ```bash
-   cd weather_station_code/receive
-   python receive.py
-   ```
-
-## Features
-
-### Data Validation
-
-- Range checking for all sensor values
-- Automatic error detection and logging
-- Invalid data filtering
-
-### Robust Communication
-
-- Packet numbering for data integrity
-- Retry mechanisms for failed transmissions
-- Error handling for network issues
-
-### Data Storage
-
-- Local CSV backup for failed uploads
-- Automatic retry of failed server uploads
-- Timestamp-based data organization
-
-### Real-time Monitoring
-
-- Live data display
-- Status indicators for all sensors
-- Debug logging for troubleshooting
-
-## Data Processing
-
-The Python script performs the following operations:
-
-1. **Data Reception**: Receives binary data from Arduino
-2. **Validation**: Checks sensor values against reasonable ranges
-3. **Conversion**: Converts scaled integers back to physical units
-4. **Upload**: Sends data to remote server asynchronously
-5. **Backup**: Stores failed uploads locally for retry
-
-### Calculated Values & Server Upload
-
-- **Rain (`rain` field)**: `rain_tips × 1.25` → depth in the **collector** (mm per tip). The website converts collector mm → **mm/m²** when plotting (`× 0.07534`, gauge Ø 130 mm).
-- **Wind (`wind_speed` field)**: anemometer **revolutions** per sample (not m/s). The website converts to m/s for display (`× 0.14`).
-- **Air quality**: CO2 and TVOC (ppb); TVOC must be ≤ 10000 to match the API.
-
-Upload endpoint: `POST …/weather_api/datasets/` with HTTP Basic Auth (see `weather_station_config.json`). Production URLs must include the `/weather_station/` prefix. On upload failure the server response body is logged.
-
-## Troubleshooting
-
-### Common Issues
-
-1. **No data received**: Check nRF24L01 connections and power
-2. **Invalid sensor readings**: Verify sensor wiring and I2C addresses
-3. **Upload failures**: Check network connection and server credentials
-4. **Serial port issues**: Verify Arduino port detection in config
-
-### Debug Features
-
-- Serial monitor output for Arduino debugging
-- Python logging for data processing issues
-- Status indicators for all system components
-
-## File Structure
+## Repository layout
 
 ```
 weather_station/
 ├── code/
-│   ├── weather_station/             # Classic sender (nRF24)
-│   ├── weather_station_r4_wifi/     # All-in-one R4 WiFi → HTTPS API
-│   ├── receive/                     # Receiver and processing
-│   ├── sensor_tests/                # Sensor tests
-│   └── ...                          # 
-├── wiring                           # Wiring & circuit diagrams
-│   ├── pin_connections.txt          # Classic two-Arduino setup
-│   └── pin_connections_r4_wifi.txt  # UNO R4 WiFi setup
-├── LICENSE                          # License 
-└── README.md                        # This file
+│   ├── weather_station_r4_wifi/   # Station firmware (Arduino sketch), README, TODO, host self-tests in tools/
+│   └── sensor_tests/              # Standalone bench tests for single sensors
+├── wiring/
+│   ├── pin_connections_r4_wifi.txt  # Pin table, power budget, wiring notes
+│   ├── wiring_diagram.py            # Generates the diagram below from one description
+│   ├── wiring_r4_wifi.svg / .html   # Wiring diagram (static / interactive)
+│   └── wiring_r4_wifi.png           # Preview (generated, gitignored)
+├── legacy/nrf24/                  # Archive: former two-board setup with nRF24 radio and receive.py
+├── .github/workflows/             # CI: host self-tests of the firmware (HMAC, bulk CSV, lux formula)
+├── LICENSE
+└── README.md
 ```
 
-## Future Enhancements
+After wiring changes, regenerate the diagram with `python3 wiring/wiring_diagram.py` and keep `pin_connections_r4_wifi.txt` in sync.
 
-- Additional sensor support (UV, wind direction etc.)
-- Solar power integration for standalone operation
+## Quick start
+
+1. Arduino IDE: install the board package *Arduino UNO R4 Boards* and the libraries listed in the firmware README.
+2. Copy `code/weather_station_r4_wifi/secrets.h.example` to `secrets.h` and fill in WiFi and the upload key from the website (`provision_upload_device`).
+3. Flash `code/weather_station_r4_wifi/weather_station_r4_wifi.ino`. For the field, set `SERIAL_DEBUG 0`.
 
 ## License
 
-This project is open source and available under the GPL License.
+GPL, see `LICENSE`.

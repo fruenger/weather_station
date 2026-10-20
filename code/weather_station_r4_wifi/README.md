@@ -1,6 +1,6 @@
 # Weather Station — Arduino UNO R4 WiFi
 
-All-in-one variant: **one board** reads all sensors and uploads directly to the OST Django API over WiFi. No nRF24 radio, no receiver Arduino, no `receive.py` on a PC.
+Standard setup of the station: **one board** reads all sensors and uploads directly to the OST Django API over WiFi. It replaces the former two-board nRF24 setup (archived in `../../legacy/nrf24/`); no receiver Arduino and no `receive.py` on a PC.
 
 ## Architecture
 
@@ -8,9 +8,9 @@ All-in-one variant: **one board** reads all sensors and uploads directly to the 
 [Sensors + PCA9548] ──I2C/GPIO──► [UNO R4 WiFi] ──HTTPS──► [Django API / Website]
 ```
 
-Compared to the classic setup:
+Compared to the former nRF24 setup (`legacy/nrf24/`):
 
-| Classic | R4 WiFi |
+| nRF24 setup | R4 WiFi |
 |---------|---------|
 | Sender Arduino + nRF24 | **not needed** |
 | Receiver Arduino + nRF24 | **not needed** |
@@ -27,7 +27,7 @@ Compared to the classic setup:
 
 ### Sensors (unchanged)
 
-Same sensors and channel assignment as the classic sender; pin mapping is identical to `weather_station.ino`. The multiplexer is an Adafruit PCA9548 STEMMA QT board (TCA9548A compatible, same address 0x70, no firmware change) on the header I2C bus with V+ = 5 V and its Vlogic switch on 3.3 V, so it also supplies the I2C sensors with 3.3 V. Exception: the PMSA003I takes VIN from the 5 V rail (its fan current would overheat the multiplexer's 3.3 V regulator); only GND/SDA/SCL come from port 0, never connect the red STEMMA QT wire. Do not use the R4's Qwiic port for it: that is a separate 3.3 V-only bus (`Wire1`).
+Same sensors and channel assignment as the former nRF24 sender; pin mapping is identical to `legacy/nrf24/weather_station/weather_station.ino`. The multiplexer is an Adafruit PCA9548 STEMMA QT board (TCA9548A compatible, same address 0x70, no firmware change) on the header I2C bus with V+ = 5 V and its Vlogic switch on 3.3 V, so it also supplies the I2C sensors with 3.3 V. Exception: the PMSA003I takes VIN from the 5 V rail (its fan current would overheat the multiplexer's 3.3 V regulator); only GND/SDA/SCL come from port 0, never connect the red STEMMA QT wire. Do not use the R4's Qwiic port for it: that is a separate 3.3 V-only bus (`Wire1`).
 
 | Pin | Function |
 |-----|----------|
@@ -127,7 +127,7 @@ Firmware uploads **raw revolutions per second** (1 Hz snapshots, since v1.9). Ro
 
 ### 2. Libraries
 
-Same as the classic sender:
+Same as the former nRF24 sender:
 
 - Adafruit BME280, MLX90614, PM25 AQI, BusIO, Unified Sensor
 - DFRobot UVIndex240370Sensor + DFRobot RTU
@@ -260,7 +260,7 @@ On HTTP **401**, **403**, or **429**, buffered samples are **not** dropped. The 
 
 Unit conversions applied in firmware:
 
-- **Rain:** tipping-bucket count × 1.25 → mm collector depth (same as classic `receive.py`)
+- **Rain:** tipping-bucket count × 1.25 → mm collector depth (same as the former `receive.py`)
 - **Wind:** raw anemometer revolutions per 1 s snapshot, capped at 500 (server converts × 0.14 → m/s)
 
 ## Configuration (in .ino)
@@ -334,7 +334,9 @@ Unit conversions applied in firmware:
 
 The R4 WiFi firmware embeds a CA bundle that works with most public HTTPS sites (including Let's Encrypt). If SSL fails only for your server, update the WiFi firmware or add a custom root CA via `sslClient.setCACert()` (see [Arduino SSL docs](https://docs.arduino.cc/tutorials/uno-r4-wifi/wifi-examples)).
 
-## Migration from classic setup
+## Migration from the nRF24 setup (done)
+
+Kept for reference; the old sketches and `receive.py` are in `../../legacy/nrf24/`.
 
 1. Move the sensor shield/cabling from the old sender Uno/Nano to the R4 WiFi (same pins).
 2. Remove both nRF24 modules.
@@ -350,13 +352,17 @@ The R4 WiFi firmware embeds a CA bundle that works with most public HTTPS sites 
 2. Confirm `NTP time synced` before uploads.
 3. Log HTTP status lines only — never print `SECRET_HMAC_SECRET_HEX`, nonces, or signatures in production.
 
-**Host-side vector check** (Linux, OpenSSL dev headers):
+**Host-side checks** (Linux, OpenSSL dev headers; run in CI by `.github/workflows/firmware-selftests.yml`):
 
 ```bash
-cd weather_station/code/weather_station_r4_wifi/tools
-g++ -std=c++17 -Wall -Wextra -o hmac_selftest hmac_selftest.cpp -lcrypto
-./hmac_selftest
+cd code/weather_station_r4_wifi/tools
+g++ -std=c++17 -Wall -Wextra -o hmac_selftest hmac_selftest.cpp -lcrypto && ./hmac_selftest
+gcc -Wall -c ../sha256.c -o sha256.o
+g++ -std=c++17 -Wall -Wextra -o bulk_csv_selftest bulk_csv_selftest.cpp sha256.o && ./bulk_csv_selftest
+g++ -std=c++17 -Wall -Wextra -o tsl2591_selftest tsl2591_selftest.cpp && ./tsl2591_selftest
 ```
+
+The binaries are gitignored.
 
 Expected vectors are in `tools/hmac_test_vectors.txt`. Firmware `weatherHmacSelfTest()` uses the same constants.
 
@@ -366,14 +372,16 @@ Expected vectors are in `tools/hmac_test_vectors.txt`. Firmware `weatherHmacSelf
 weather_station_r4_wifi/
 ├── weather_station_r4_wifi.ino   # Main sketch
 ├── weather_hmac.h / .cpp         # WEATHER-HMAC-V1 helpers
+├── bulk_csv.h                    # CSV line format of the bulk upload (host-testable)
 ├── sha256.h / .c                 # Vendored SHA-256 + HMAC (no mbedtls)
 ├── secrets.h.example             # Template credentials
 ├── secrets.h                     # Your credentials (gitignored, create locally)
 ├── tools/
 │   ├── hmac_test_vectors.txt     # Known WEATHER-HMAC-V1 digests
 │   ├── hmac_selftest.cpp         # Host OpenSSL vector check
+│   ├── bulk_csv_selftest.cpp     # Host check of bulk CSV + incremental SHA-256
 │   └── tsl2591_selftest.cpp      # Host check of lux formula + auto-ranging
-├── TODO.md                       # Server-side wind + bulk API plans
+├── TODO.md                       # Open items: energy, wind, light sensor
 ├── DEV_Config.* / TSL2591.*      # Light sensor driver (I2C helpers, polling)
 ├── tsl2591_logic.h               # Lux formula + auto-ranging (host-testable)
 └── README.md                     # This file
